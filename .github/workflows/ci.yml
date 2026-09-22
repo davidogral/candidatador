@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
       - run: uv sync --all-extras --python 3.12
       - run: uv run ruff check .
       - run: uv run ruff format --check .
@@ -32,6 +32,6 @@ jobs:
         python: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
       - run: uv sync --extra ai --python ${{ matrix.python }}
       - run: uv run pytest --cov=candidatador --cov-report=term-missing
