@@ -1,0 +1,45 @@
+# Seu perfil profissional. Este arquivo fica APENAS na sua máquina.
+# Ele é usado para filtrar/pontuar vagas e preencher formulários de candidatura.
+
+personal:
+  full_name: "Seu Nome Completo"
+  email: "voce@exemplo.com"
+  phone: "+55 11 99999-9999"
+  city: "São Paulo"
+  state: "SP"
+  country: "Brasil"
+  linkedin: "https://www.linkedin.com/in/seu-usuario"
+  github: "https://github.com/seu-usuario"
+  portfolio: ""
+
+headline: "Desenvolvedor(a) Backend Python"
+summary: >
+  Resumo curto sobre você. Usado em cartas de apresentação e respostas abertas.
+
+seniority: pleno            # estagio | junior | pleno | senior | especialista | lideranca
+years_of_experience: 4
+
+skills: [python, django, fastapi, postgresql, docker, aws]
+languages:
+  - { name: Português, level: nativo }
+  - { name: Inglês, level: avançado }
+
+target:
+  roles: ["desenvolvedor backend", "backend engineer", "python developer"]
+  keywords_required: []                     # a vaga precisa conter ao menos uma destas
+  keywords_excluded: ["php", "estágio"]     # vagas com estes termos são descartadas
+  locations: ["São Paulo", "Remoto"]
+  remote: preferred                         # only | preferred | any | no
+  contract_types: [clt, pj]
+  min_salary_brl: 8000
+  companies_excluded: []
+
+# Respostas padrão para perguntas comuns de formulários.
+# O candidatador usa estas respostas antes de recorrer à IA ou perguntar para você.
+answers:
+  authorized_to_work: "Sim"
+  requires_sponsorship: "Não"
+  notice_period: "30 dias"
+  salary_expectation: "R$ 10.000"
+  available_to_relocate: "Não"
+  how_did_you_hear: "Site de vagas"

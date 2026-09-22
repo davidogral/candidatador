@@ -1,0 +1,37 @@
+name: 🔌 Pedido de nova fonte / aplicador
+description: Sugira um site de vagas ou formulário para suportar
+labels: [new-source]
+body:
+  - type: input
+    id: site
+    attributes:
+      label: Site
+      placeholder: https://www.catho.com.br
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: O que falta?
+      options:
+        - Buscar vagas (fonte)
+        - Preencher candidatura (aplicador)
+        - Ambos
+    validations:
+      required: true
+  - type: dropdown
+    id: region
+    attributes:
+      label: Região principal
+      options: [Brasil, América Latina, Global, Outra]
+  - type: textarea
+    id: api
+    attributes:
+      label: Existe API pública ou endpoint JSON?
+      description: Links de documentação, exemplos de URLs de vaga, observações sobre termos de uso.
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Contribuição
+      options:
+        - label: Quero implementar (veja docs/nova-fonte.md)

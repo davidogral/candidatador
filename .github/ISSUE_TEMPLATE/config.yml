@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Dúvidas e ideias
+    url: https://github.com/davidogral/candidatador/discussions
+    about: Perguntas de uso e discussões gerais
+  - name: 🔒 Vulnerabilidade de segurança
+    url: https://github.com/davidogral/candidatador/security/advisories/new
+    about: Reporte de forma privada

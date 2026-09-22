@@ -1,0 +1,39 @@
+# Configuração do candidatador. Veja docs/configuracao.md para todas as opções.
+
+sources:
+  gupy:
+    enabled: true
+    max_results: 100
+  remotive:
+    enabled: true
+    max_results: 50
+  greenhouse:
+    enabled: false
+    boards: []          # ex.: [nubank, gitlab] (slug em boards.greenhouse.io/<slug>)
+  lever:
+    enabled: false
+    companies: []       # ex.: [palantir] (slug em jobs.lever.co/<slug>)
+  ashby:
+    enabled: false
+    organizations: []   # ex.: [ashby] (slug em jobs.ashbyhq.com/<slug>)
+  jobspy:
+    # LinkedIn, Indeed, Glassdoor, Google Jobs. Requer: pip install "candidatador[jobspy]"
+    # Leia docs/uso-responsavel.md antes de ativar.
+    enabled: false
+    sites: [linkedin, indeed, glassdoor, google]
+    country_indeed: brazil
+    max_results: 50
+
+matching:
+  min_score: 40          # vagas abaixo disso ficam ocultas por padrão
+  use_ai: false          # requer: pip install "candidatador[ai]" e ANTHROPIC_API_KEY
+
+ai:
+  model: claude-opus-5
+  effort: low            # low | medium | high — custo x qualidade
+
+apply:
+  mode: review           # review: preenche e espera sua confirmação | auto: envia sozinho
+  headless: false
+  max_per_day: 20        # limite de segurança
+  delay_seconds: 30      # intervalo mínimo entre candidaturas

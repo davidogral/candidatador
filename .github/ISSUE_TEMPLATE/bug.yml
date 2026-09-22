@@ -1,0 +1,45 @@
+name: 🐛 Bug
+description: Algo não funciona como deveria
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: "⚠️ **Não cole dados pessoais** (currículo, e-mail, telefone). Use dados fictícios."
+  - type: textarea
+    id: what
+    attributes:
+      label: O que aconteceu?
+      description: E o que você esperava que acontecesse?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Como reproduzir
+      placeholder: |
+        1. candidatador search -k python -s gupy
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: component
+    attributes:
+      label: Fonte / aplicador envolvido
+      placeholder: gupy, greenhouse, lever...
+  - type: textarea
+    id: logs
+    attributes:
+      label: Saída / erro
+      render: shell
+  - type: input
+    id: version
+    attributes:
+      label: Versão
+      description: "Saída de `candidatador version`"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Sistema operacional
+      options: [macOS, Linux, Windows, Outro]

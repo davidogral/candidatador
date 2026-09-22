@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Dados pessoais — nunca versionar
+profile.yaml
+!src/candidatador/templates/profile.yaml
+config.yaml
+!src/candidatador/templates/config.yaml
+*.db
+vault/
+browser/
+*.pdf
+*.docx
+
+# Editor / SO
+.DS_Store
+.idea/
+.vscode/
+.env
