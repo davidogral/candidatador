@@ -21,6 +21,16 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
   confere a CLI e a interface sem publicar; publicação só em tags `v*`.
 
 ### Corrigido
+- Busca pela interface travava e dava `database is locked`: a busca segurava a escrita no banco
+  durante as chamadas de IA e aceitava buscas simultâneas. Agora roda em segundo plano com
+  progresso na página, só grava no final (upsert atômico que preserva o status da vaga), usa
+  SQLite em modo WAL, aceita uma busca por vez e a IA analisa até `matching.ai_max_jobs` vagas,
+  4 em paralelo (20 vagas: de ~3 min para ~50 s).
+- Criação do banco não era segura entre threads (`table already exists`).
+- Ctrl+C na interface demorava até 60 s com uma busca em andamento; agora fecha na hora.
+- Erro de limite do Claude Code aparecia como JSON ilegível; agora mostra o motivo
+  ("You've hit your session limit…") e a busca para de chamar a IA, mantendo as notas locais.
+- Glassdoor removido dos sites padrão do JobSpy (bloqueia com HTTP 403).
 - Perguntas de sim/não (ex.: "Will you require sponsorship to work in the country?") não
   recebem mais um campo do perfil (como o país); respostas padrão têm prioridade.
 

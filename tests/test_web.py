@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import threading
 import time
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -95,10 +97,11 @@ def test_search_and_job_filters(client, paths):
                 },
             )
         )
-        r = client.post(
+        task = client.post(
             "/api/search", json={"keywords": ["python"], "sources": ["gupy"]}, headers=H
-        )
-    assert r.json()["stored"] == 1
+        ).json()
+        result = wait_search(client, task["id"])["result"]
+    assert result["stored"] == 1
     add_job(
         paths, "greenhouse:acme-2", url="https://job-boards.greenhouse.io/acme/jobs/2", score=50
     )
@@ -112,6 +115,41 @@ def test_search_and_job_filters(client, paths):
     client.patch("/api/jobs/gupy:9", json={"status": "ignored"}, headers=H)
     active = client.get("/api/jobs", params={"status": "new,shortlisted", "min_score": 0}).json()
     assert [j["id"] for j in active["items"]] == ["greenhouse:acme-2"]
+
+
+def wait_search(client, task_id):
+    for _ in range(200):
+        snap = client.get(f"/api/search/{task_id}").json()
+        if snap["state"] == "done":
+            return snap
+        time.sleep(0.02)
+    raise AssertionError(f"search never finished: {snap}")
+
+
+def test_only_one_search_at_a_time_with_progress(client, monkeypatch):
+    release = threading.Event()
+
+    def slow_search(s, config, profile, query, *, on_progress, **_kwargs):
+        on_progress("Buscando em Gupy...")
+        release.wait(5)
+        return SimpleNamespace(
+            fetched=0, filtered_out=0, duplicates=0, ai_evaluated=0, stored=[], errors={}
+        )
+
+    monkeypatch.setattr("candidatador.web.run_search", slow_search)
+    first = client.post("/api/search", json={}, headers=H).json()
+    assert client.post("/api/search", json={}, headers=H).status_code == 409
+    assert client.get("/api/status").json()["search_running"] == first["id"]
+    for _ in range(100):
+        if client.get(f"/api/search/{first['id']}").json()["log"]:
+            break
+        time.sleep(0.02)
+    assert client.get(f"/api/search/{first['id']}").json()["log"] == ["Buscando em Gupy..."]
+
+    release.set()
+    assert wait_search(client, first["id"])["result"]["stored"] == 0
+    assert client.get("/api/status").json()["search_running"] is None
+    assert client.post("/api/search", json={}, headers=H).status_code == 200
 
 
 def test_manual_application(client, paths):

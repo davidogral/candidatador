@@ -136,7 +136,7 @@ tr.clickable { cursor: pointer; } tr.clickable:hover td { background: var(--surf
       </div>
       <div class="row" style="margin-top:12px">
         <label class="inline"><input type="checkbox" id="s-remote"> Somente remotas</label>
-        <label class="inline"><input type="checkbox" id="s-ai"> Refinar nota com IA</label>
+        <label class="inline" title="A IA analisa as vagas de maior nota (até o limite em Configurações), 4 por vez. Leva alguns segundos por vaga."><input type="checkbox" id="s-ai"> Refinar nota com IA</label>
         <span class="muted small">Fontes:</span><span class="row" id="s-sources"></span>
         <span class="spacer"></span>
         <button class="btn primary" id="btn-search">🔎 Buscar</button>
@@ -258,6 +258,7 @@ tr.clickable { cursor: pointer; } tr.clickable:hover td { background: var(--surf
       <h2>Pontuação, IA e candidaturas</h2>
       <div class="grid">
         <label>Nota mínima exibida<input id="c-min-score" type="number" min="0" max="100"></label>
+        <label>Máx. de vagas analisadas pela IA por busca<input id="c-ai-max" type="number" min="1" max="200"></label>
         <label>Provedor de IA<select id="c-ai-provider">
           <option value="auto">Automático</option>
           <option value="claude-cli">Claude Code CLI (sua assinatura)</option>
@@ -352,29 +353,51 @@ async function loadSourcesForSearch() {
     <label class="inline" title="${esc(s.terms_note || "")}"><input type="checkbox" value="${esc(s.name)}" ${s.enabled ? "checked" : ""}> ${esc(s.display_name.split(" (")[0])}</label>`).join("");
 }
 $("#btn-search").addEventListener("click", async () => {
-  const btn = $("#btn-search"); btn.disabled = true;
-  $("#search-result").innerHTML = `<span class="spinner"></span> Buscando nas fontes selecionadas... isso pode levar alguns segundos.`;
   try {
     const selected = $$("#s-sources input:checked").map((i) => i.value);
     if (!selected.length) throw new Error("Selecione ao menos uma fonte.");
-    const r = await api("/api/search", { method: "POST", json: {
+    const task = await api("/api/search", { method: "POST", json: {
       keywords: splitList($("#s-keywords").value), location: $("#s-location").value || null,
       remote: $("#s-remote").checked, days: $("#s-days").value ? +$("#s-days").value : null,
       limit: +$("#s-limit").value || 50, sources: selected, ai: $("#s-ai").checked } });
-    const errs = Object.entries(r.errors).map(([k, v]) => `<div class="alert bad">✗ ${esc(k)}: ${esc(v)}</div>`).join("");
-    $("#f-status").value = "new,shortlisted"; $("#f-sort").value = "score";
-    $("#f-q").value = ""; $("#f-source").value = ""; $("#f-remote").value = ""; $("#f-auto").value = "";
-    await Promise.all([loadJobs(), loadStatus()]);
-    const visible = state.jobsTotal;
-    const hidden = r.stored - Math.min(visible, r.stored);
-    $("#search-result").innerHTML = `<div class="alert ok">${r.fetched} vagas encontradas · ${r.filtered_out} descartadas pelos filtros do perfil · ${r.duplicates} duplicadas · <b>${r.stored} salvas</b> — veja a lista abaixo ↓</div>
-      ${hidden > 0 ? `<div class="alert warn row">${hidden} vaga(s) salvas estão escondidas por terem nota abaixo de ${$("#f-min").value}.
-        <button class="btn small" id="show-all">Mostrar todas</button></div>` : ""}${errs}`;
-    if ($("#show-all")) $("#show-all").onclick = () => { $("#f-min").value = 0; $("#f-min-v").textContent = "0"; loadJobs(); $("#search-result .alert.warn").remove(); };
-    $("#jobs-count").scrollIntoView({ behavior: "smooth", block: "start" });
+    followSearch(task.id);
   } catch (e) { $("#search-result").innerHTML = `<div class="alert bad">${esc(e.message)}</div>`; }
-  finally { btn.disabled = false; }
 });
+
+function followSearch(id) {
+  const btn = $("#btn-search"); btn.disabled = true;
+  const started = Date.now();
+  const tick = async () => {
+    let task;
+    try { task = await api(`/api/search/${id}`); }
+    catch (e) { btn.disabled = false; $("#search-result").innerHTML = `<div class="alert bad">${esc(e.message)}</div>`; return; }
+    if (task.state !== "done") {
+      const secs = Math.round((Date.now() - started) / 1000);
+      const last = task.log[task.log.length - 1] || "Iniciando...";
+      $("#search-result").innerHTML = `<div class="alert info"><span class="spinner"></span> ${esc(last)} <span class="muted small">· ${secs}s</span>
+        <div class="small muted" style="margin-top:6px">Você pode continuar usando o resto da interface enquanto isso.</div></div>`;
+      setTimeout(tick, 1000);
+      return;
+    }
+    btn.disabled = false;
+    await showSearchResult(task.result || {});
+  };
+  tick();
+}
+
+async function showSearchResult(r) {
+  if (r.error) { $("#search-result").innerHTML = `<div class="alert bad">A busca falhou: ${esc(r.error)}</div>`; return; }
+  const errs = Object.entries(r.errors || {}).map(([k, v]) => `<div class="alert bad">✗ ${esc(k)}: ${esc(v)}</div>`).join("");
+  $("#f-status").value = "new,shortlisted"; $("#f-sort").value = "score";
+  $("#f-q").value = ""; $("#f-source").value = ""; $("#f-remote").value = ""; $("#f-auto").value = "";
+  await Promise.all([loadJobs(), loadStatus()]);
+  const hidden = r.stored - Math.min(state.jobsTotal, r.stored);
+  $("#search-result").innerHTML = `<div class="alert ok">${r.fetched} vagas encontradas · ${r.filtered_out} descartadas pelos filtros do perfil · ${r.duplicates} duplicadas${r.ai_evaluated ? ` · ${r.ai_evaluated} analisadas pela IA` : ""} · <b>${r.stored} salvas</b> — veja a lista abaixo ↓</div>
+    ${hidden > 0 ? `<div class="alert warn row">${hidden} vaga(s) salvas estão escondidas por terem nota abaixo de ${$("#f-min").value}.
+      <button class="btn small" id="show-all">Mostrar todas</button></div>` : ""}${errs}`;
+  if ($("#show-all")) $("#show-all").onclick = () => { $("#f-min").value = 0; $("#f-min-v").textContent = "0"; loadJobs(); $("#search-result .alert.warn").remove(); };
+  $("#jobs-count").scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 /* ------------------------------------------------------------------ jobs list */
 async function loadJobs() {
@@ -696,7 +719,7 @@ async function loadSettings() {
       <label style="margin-top:8px">Máx. resultados<input type="number" data-src="${esc(s.name)}" data-key="max_results" value="${esc(st.max_results ?? "")}" placeholder="padrão da busca"></label>
     </div>`;
   }).join("");
-  $("#c-min-score").value = cfg.matching.min_score; $("#c-use-ai").checked = cfg.matching.use_ai;
+  $("#c-min-score").value = cfg.matching.min_score; $("#c-ai-max").value = cfg.matching.ai_max_jobs; $("#c-use-ai").checked = cfg.matching.use_ai;
   $("#c-ai-provider").value = cfg.ai.provider; $("#c-ai-model").value = cfg.ai.model; $("#c-ai-effort").value = cfg.ai.effort;
   $("#c-apply-mode").value = cfg.apply.mode; $("#c-headless").checked = cfg.apply.headless;
   $("#c-max-day").value = cfg.apply.max_per_day; $("#c-delay").value = cfg.apply.delay_seconds;
@@ -721,7 +744,7 @@ $("#save-config").onclick = async () => {
     if (el.type === "number") { if (v === "") { delete src[el.dataset.key]; return; } v = +v; }
     src[el.dataset.key] = v;
   });
-  cfg.matching = { min_score: +$("#c-min-score").value, use_ai: $("#c-use-ai").checked };
+  cfg.matching = { min_score: +$("#c-min-score").value, use_ai: $("#c-use-ai").checked, ai_max_jobs: +$("#c-ai-max").value || 20 };
   cfg.ai = { provider: $("#c-ai-provider").value, model: $("#c-ai-model").value.trim(), effort: $("#c-ai-effort").value };
   cfg.apply = { mode: $("#c-apply-mode").value, headless: $("#c-headless").checked, max_per_day: +$("#c-max-day").value, delay_seconds: +$("#c-delay").value };
   try {
@@ -738,6 +761,7 @@ $("#save-config").onclick = async () => {
     $("#f-min").value = state.config.matching.min_score; $("#f-min-v").textContent = $("#f-min").value;
     $("#s-ai").checked = state.config.matching.use_ai;
     await Promise.all([loadStatus(), loadSourcesForSearch(), loadDocsData()]);
+    if (state.status.search_running) followSearch(state.status.search_running);
     const tab = location.hash.slice(1);
     showTab(["jobs", "applications", "documents", "profile", "settings"].includes(tab) ? tab : "jobs");
   } catch (e) { toast("Erro ao carregar: " + e.message, true); }

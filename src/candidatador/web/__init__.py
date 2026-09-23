@@ -107,6 +107,30 @@ class ApplySession:
             }
 
 
+class SearchTask:
+    """A search running in a background thread, with progress messages for the page."""
+
+    def __init__(self) -> None:
+        self.id = uuid.uuid4().hex[:12]
+        self.state: Literal["running", "done"] = "running"
+        self.log: list[str] = []
+        self.result: dict[str, Any] | None = None
+        self._lock = threading.Lock()
+
+    def add_log(self, message: str) -> None:
+        with self._lock:
+            self.log.append(str(message))
+
+    def snapshot(self) -> dict[str, Any]:
+        with self._lock:
+            return {
+                "id": self.id,
+                "state": self.state,
+                "log": list(self.log),
+                "result": self.result,
+            }
+
+
 # --------------------------------------------------------------------------- request bodies
 
 
@@ -219,6 +243,8 @@ def create_app(paths: Paths | None = None, *, port: int = 8765) -> FastAPI:
     init_home(paths)
     app = FastAPI(title="Candidatador", version=__version__, docs_url="/api/docs")
     sessions: dict[str, ApplySession] = {}
+    searches: dict[str, SearchTask] = {}
+    searches_lock = threading.Lock()
     allowed_hosts = {f"127.0.0.1:{port}", f"localhost:{port}", "testserver"}
 
     @app.middleware("http")
@@ -257,6 +283,7 @@ def create_app(paths: Paths | None = None, *, port: int = 8765) -> FastAPI:
             "max_per_day": config.apply.max_per_day,
             "jobs": {s.value: counts.get(s, 0) for s in JobStatus},
             "busy": any(sess.state != "done" for sess in sessions.values()),
+            "search_running": next((t.id for t in searches.values() if t.state != "done"), None),
         }
 
     # ------------------------------------------------------------------ profile & config
@@ -376,7 +403,14 @@ def create_app(paths: Paths | None = None, *, port: int = 8765) -> FastAPI:
     # ------------------------------------------------------------------ search & jobs
 
     @app.post("/api/search")
-    def search(body: SearchBody) -> dict[str, Any]:
+    def start_search(body: SearchBody) -> dict[str, Any]:
+        """Starts a search in the background; poll GET /api/search/{id} for progress."""
+        with searches_lock:
+            if any(t.state != "done" for t in searches.values()):
+                raise HTTPException(409, "Já existe uma busca em andamento.")
+            task = SearchTask()
+            searches[task.id] = task
+
         config, profile = load_config(paths), load_profile(paths)
         query = SearchQuery(
             keywords=[k for k in body.keywords if k.strip()] or profile.target.roles,
@@ -386,17 +420,41 @@ def create_app(paths: Paths | None = None, *, port: int = 8765) -> FastAPI:
             limit=body.limit,
         )
         use_ai = config.matching.use_ai if body.ai is None else body.ai
-        with session(paths) as s:
-            report = run_search(
-                s, config, profile, query, only_sources=body.sources or None, use_ai=use_ai
-            )
-            return {
-                "fetched": report.fetched,
-                "filtered_out": report.filtered_out,
-                "duplicates": report.duplicates,
-                "stored": len(report.stored),
-                "errors": report.errors,
-            }
+
+        def worker() -> None:
+            try:
+                with session(paths) as s:
+                    report = run_search(
+                        s,
+                        config,
+                        profile,
+                        query,
+                        only_sources=body.sources or None,
+                        use_ai=use_ai,
+                        on_progress=task.add_log,
+                    )
+                task.result = {
+                    "fetched": report.fetched,
+                    "filtered_out": report.filtered_out,
+                    "duplicates": report.duplicates,
+                    "ai_evaluated": report.ai_evaluated,
+                    "stored": len(report.stored),
+                    "errors": report.errors,
+                }
+            except Exception as exc:
+                task.result = {"error": f"{type(exc).__name__}: {exc}"}
+            finally:
+                task.state = "done"
+
+        threading.Thread(target=worker, name=f"search-{task.id}", daemon=True).start()
+        return task.snapshot()
+
+    @app.get("/api/search/{task_id}")
+    def search_status(task_id: str) -> dict[str, Any]:
+        task = searches.get(task_id)
+        if not task:
+            raise HTTPException(404, "busca não encontrada")
+        return task.snapshot()
 
     @app.get("/api/jobs")
     def list_jobs(
