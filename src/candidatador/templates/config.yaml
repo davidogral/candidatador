@@ -20,13 +20,14 @@ sources:
     # LinkedIn, Indeed, Glassdoor, Google Jobs. Requer: pip install "candidatador[jobspy]"
     # Leia docs/uso-responsavel.md antes de ativar.
     enabled: false
-    sites: [linkedin, indeed, glassdoor, google]
+    sites: [linkedin, indeed, google]   # glassdoor costuma bloquear (HTTP 403)
     country_indeed: brazil
     max_results: 50
 
 matching:
   min_score: 40          # vagas abaixo disso ficam ocultas por padrão
   use_ai: false          # veja a seção "ai" abaixo
+  ai_max_jobs: 20        # máximo de vagas analisadas pela IA por busca (as de maior nota)
 
 ai:
   # auto: usa o primeiro disponível entre claude-cli, codex-cli e api

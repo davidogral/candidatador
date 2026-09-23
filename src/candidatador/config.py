@@ -54,6 +54,8 @@ class Paths:
 class MatchingConfig(BaseModel):
     min_score: float = 40
     use_ai: bool = False
+    #: max jobs the AI evaluates per search (the best local scores first)
+    ai_max_jobs: int = 20
 
 
 class AIConfig(BaseModel):
