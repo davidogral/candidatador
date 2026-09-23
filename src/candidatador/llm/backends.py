@@ -63,9 +63,11 @@ def strict_schema(schema: type[BaseModel]) -> dict[str, Any]:
     return dict(fix(copy.deepcopy(schema.model_json_schema())))
 
 
-def _run(cmd: list[str], stdin: str, cwd: str | None = None) -> str:
+def _run_raw(
+    cmd: list[str], stdin: str, cwd: str | None = None
+) -> subprocess.CompletedProcess[str]:
     try:
-        proc = subprocess.run(
+        return subprocess.run(
             cmd,
             input=stdin,
             capture_output=True,
@@ -78,6 +80,10 @@ def _run(cmd: list[str], stdin: str, cwd: str | None = None) -> str:
         raise AIUnavailableError(f"Comando não encontrado: {cmd[0]}") from exc
     except subprocess.TimeoutExpired as exc:
         raise AIUnavailableError(f"{cmd[0]} demorou mais de {CLI_TIMEOUT_SECONDS}s") from exc
+
+
+def _run(cmd: list[str], stdin: str, cwd: str | None = None) -> str:
+    proc = _run_raw(cmd, stdin, cwd)
     if proc.returncode != 0:
         detail = (proc.stderr or proc.stdout).strip()[-500:]
         raise AIUnavailableError(f"{cmd[0]} falhou (código {proc.returncode}): {detail}")
@@ -118,14 +124,20 @@ class ClaudeCLIBackend:
     def _call(self, system: str, prompt: str, extra: list[str]) -> dict[str, Any]:
         # Empty working dir so no project CLAUDE.md or settings leak into the prompt.
         with tempfile.TemporaryDirectory() as cwd:
-            out = _run(self._cmd(system, extra), prompt, cwd=cwd)
+            proc = _run_raw(self._cmd(system, extra), prompt, cwd=cwd)
         try:
-            data = json.loads(out)
-        except json.JSONDecodeError as exc:
-            raise AIUnavailableError(f"Saída inesperada do claude: {out[:300]}") from exc
-        if data.get("is_error"):
-            raise AIUnavailableError(f"claude retornou erro: {data.get('result', '')[:300]}")
-        return dict(data)
+            data = json.loads(proc.stdout)
+        except json.JSONDecodeError:
+            data = None
+        if isinstance(data, dict) and (data.get("is_error") or proc.returncode != 0):
+            # e.g. "You've hit your session limit · resets 2:30pm" (HTTP 429)
+            reason = str(data.get("result") or data.get("subtype") or "erro desconhecido")
+            status = data.get("api_error_status")
+            raise AIUnavailableError(f"claude: {reason}" + (f" (HTTP {status})" if status else ""))
+        if not isinstance(data, dict):
+            detail = (proc.stderr or proc.stdout).strip()[-300:]
+            raise AIUnavailableError(f"claude falhou (código {proc.returncode}): {detail}")
+        return data
 
     def structured(self, system: str, prompt: str, schema: type[T]) -> T:
         data = self._call(system, prompt, ["--json-schema", json.dumps(strict_schema(schema))])

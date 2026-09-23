@@ -144,3 +144,18 @@ def test_create_backend_auto_and_unavailable(monkeypatch):
     assert create_backend(AIConfig()).name == "codex-cli"
     with pytest.raises(AIUnavailableError):
         create_backend(AIConfig(provider="claude-cli"))
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="shebang scripts")
+def test_claude_cli_limit_error_is_readable(tmp_path):
+    exe = fake_cli(
+        tmp_path,
+        "claude",
+        "print(json.dumps({'is_error': True, 'api_error_status': 429, "
+        "'result': \"You've hit your session limit · resets 2:30pm\", 'usage': {}}))\n"
+        "sys.exit(1)\n",
+    )
+    backend = ClaudeCLIBackend(AIConfig(), executable=str(exe))
+    with pytest.raises(AIUnavailableError) as info:
+        backend.text("sys", "oi")
+    assert str(info.value) == "claude: You've hit your session limit · resets 2:30pm (HTTP 429)"
