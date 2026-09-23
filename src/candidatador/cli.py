@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import sys
 import time
 import webbrowser
 from pathlib import Path
@@ -432,7 +434,19 @@ def ui(
     console.print(f"Interface disponível em [bold]{url}[/] (Ctrl+C para sair)")
     if open_browser:
         threading.Timer(1.0, webbrowser.open, args=(url,)).start()
-    uvicorn.run(create_app(paths, port=port), host="127.0.0.1", port=port, log_level="warning")
+    uvicorn.run(
+        create_app(paths, port=port),
+        host="127.0.0.1",
+        port=port,
+        log_level="warning",
+        timeout_graceful_shutdown=2,
+    )
+    # A search may still be running in worker threads (JobSpy and the AI use thread pools,
+    # which Python joins on exit, so Ctrl+C would hang for minutes). Nothing is lost by
+    # stopping now: a search only writes at the very end, in one atomic transaction.
+    console.print("Interface encerrada.")
+    sys.stdout.flush()
+    os._exit(0)
 
 
 @app.command()
