@@ -14,6 +14,12 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
   nem a candidatura.
 - `service.apply_to_job`: fluxo de candidatura compartilhado entre CLI e interface.
 
+### Alterado
+- GitHub Actions atualizadas para Node 24 (checkout 7, upload-artifact 7, download-artifact 8,
+  setup-uv 7, codeql-action 4, action-gh-release 3).
+- `release.yml`: novo disparo manual que monta o pacote, instala o wheel num ambiente limpo e
+  confere a CLI e a interface sem publicar; publicação só em tags `v*`.
+
 ### Corrigido
 - Perguntas de sim/não (ex.: "Will you require sponsorship to work in the country?") não
   recebem mais um campo do perfil (como o país); respostas padrão têm prioridade.
