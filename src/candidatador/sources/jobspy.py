@@ -34,7 +34,7 @@ class JobSpySource(JobSource):
             raise SourceError('Instale o extra: pip install "candidatador[jobspy]"') from exc
 
         kwargs: dict[str, Any] = {
-            "site_name": self.settings.get("sites") or ["linkedin", "indeed"],
+            "site_name": self.settings.get("sites") or ["linkedin", "indeed", "google"],
             "search_term": " OR ".join(query.keywords) if query.keywords else None,
             "location": query.location,
             "results_wanted": self.max_results(query),

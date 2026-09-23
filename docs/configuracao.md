@@ -28,7 +28,7 @@ sources:
   greenhouse: { enabled: true, boards: [nubank, gitlab] }
   lever:      { enabled: true, companies: [palantir] }
   ashby:      { enabled: false, organizations: [] }
-  jobspy:     { enabled: false, sites: [linkedin, indeed, glassdoor, google], country_indeed: brazil }
+  jobspy:     { enabled: false, sites: [linkedin, indeed, google], country_indeed: brazil }
 
 matching:
   min_score: 40      # abaixo disso a vaga não aparece nas listagens
