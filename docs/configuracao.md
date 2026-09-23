@@ -35,7 +35,8 @@ matching:
   use_ai: false
 
 ai:
-  model: claude-opus-5
+  provider: auto     # auto | claude-cli | codex-cli | api
+  model: ""          # vazio = padrão do provedor
   effort: low        # low | medium | high
 
 apply:

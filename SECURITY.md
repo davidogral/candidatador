@@ -21,5 +21,7 @@ do GitHub. Responderemos em até 7 dias.
 
 - Tudo é armazenado localmente (`candidatador init` mostra a pasta). Não há servidor.
 - A IA é opcional; quando ativa, e-mail e telefone não são enviados.
+- Descrições de vagas são conteúdo não confiável. O provedor `claude-cli` roda sem ferramentas e sem
+  MCP; o `codex-cli` roda em sandbox somente leitura numa pasta vazia, e toda resposta dele exige revisão.
 - O perfil do navegador (cookies/logins) fica em `<pasta de dados>/browser`. Proteja essa pasta
   como protegeria suas senhas.

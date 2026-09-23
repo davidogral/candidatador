@@ -10,6 +10,10 @@ Contexto rápido para quem (pessoa ou agente de código) vai mexer neste reposit
 - Invariantes que não podem quebrar:
   - Nenhum aplicador envia candidatura fora de `submit()`; o modo `review` exige confirmação.
   - E-mail e telefone não entram em prompts de IA (`llm._profile_block`).
+  - Backends de IA via CLI nunca recebem ferramentas (`claude --tools ""`); se um backend não puder
+    ser isolado, marque `untrusted_tools = True` para que as respostas passem por revisão humana.
   - Uma fonte com erro não interrompe a busca (`pipeline.run_search`).
   - Datas são sempre timezone-aware (`sources.base.parse_datetime`).
+- A interface (`web/`) é só uma camada sobre `service.py`/`pipeline.py`; regra de negócio fica fora dela.
+  Todo texto vindo de vagas é escapado (`esc()`) no front-end; mutações exigem o cabeçalho `X-Candidatador`.
 - Nunca versionar dados pessoais (`profile.yaml`, `vault/`, `*.db`).
