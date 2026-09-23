@@ -55,9 +55,12 @@ def run_search(
     assistant = None
     resumes: list[Document] = []
     if use_ai:
-        from candidatador.llm import ClaudeAssistant
+        from candidatador.llm import AIAssistant, AIUnavailableError
 
-        assistant = ClaudeAssistant(config.ai)
+        try:
+            assistant = AIAssistant(config.ai)
+        except AIUnavailableError as exc:
+            report.errors["ia"] = str(exc)
         resumes = list(s.exec(select(Document).where(Document.kind == DocumentKind.RESUME)))
 
     seen_fingerprints = set(s.exec(select(Job.fingerprint)).all())
@@ -77,8 +80,11 @@ def run_search(
         score, reasons = match.score, match.reasons
         if assistant is not None and score >= config.matching.min_score / 2:
             on_progress(f"Analisando com IA: {posting.title} @ {posting.company}")
-            evaluation = assistant.evaluate_job(profile, resumes, posting)
-            score, reasons = float(evaluation.score), evaluation.reasons
+            try:
+                evaluation = assistant.evaluate_job(profile, resumes, posting)
+                score, reasons = float(evaluation.score), [f"IA: {r}" for r in evaluation.reasons]
+            except Exception as exc:  # keep the local score; report the AI problem once
+                report.errors.setdefault("ia", f"{type(exc).__name__}: {exc}")
 
         job = existing or Job(
             id=posting.id,

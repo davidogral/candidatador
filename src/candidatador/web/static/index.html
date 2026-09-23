@@ -1,0 +1,747 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Candidatador</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
+<style>
+:root {
+  --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f0f2f5; --border: #e2e5ea;
+  --text: #1c2330; --muted: #667085; --accent: #4f46e5; --accent-soft: #eef0ff;
+  --ok: #15803d; --ok-soft: #e7f6ec; --warn: #b45309; --warn-soft: #fdf3e2;
+  --bad: #b91c1c; --bad-soft: #fdecec; --shadow: 0 1px 2px rgba(16,24,40,.06), 0 4px 16px rgba(16,24,40,.06);
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1218; --surface: #171b23; --surface-2: #1f2430; --border: #2b3240;
+    --text: #e6e9ef; --muted: #98a2b3; --accent: #8b87ff; --accent-soft: #25244a;
+    --ok: #4ade80; --ok-soft: #14301f; --warn: #fbbf24; --warn-soft: #3a2c10;
+    --bad: #f87171; --bad-soft: #3b1618; --shadow: 0 1px 2px rgba(0,0,0,.4);
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+a { color: var(--accent); }
+header { position: sticky; top: 0; z-index: 20; background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 16px; padding: 10px 20px; flex-wrap: wrap; }
+header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+nav { display: flex; gap: 4px; flex-wrap: wrap; }
+nav button { background: none; border: 0; padding: 8px 12px; border-radius: 8px; color: var(--muted); font-weight: 600; cursor: pointer; }
+nav button.active { background: var(--accent-soft); color: var(--accent); }
+.stats { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.chip b { color: var(--text); }
+main { max-width: 1280px; margin: 0 auto; padding: 20px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; margin-bottom: 16px; }
+.card h2 { font-size: 15px; margin: 0 0 12px; }
+.card h3 { font-size: 13px; margin: 16px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.grid.wide { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; }
+label.inline { flex-direction: row; align-items: center; gap: 8px; color: var(--text); font-weight: 500; font-size: 13px; }
+input, select, textarea { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; width: 100%; }
+input[type=checkbox], input[type=radio] { width: auto; }
+textarea { min-height: 70px; resize: vertical; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.btn { font: inherit; font-weight: 600; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 7px 14px; cursor: pointer; white-space: nowrap; }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { filter: brightness(1.08); background: var(--accent); }
+button.danger { color: var(--bad); }
+button.small { padding: 3px 8px; font-size: 12px; }
+button:disabled { opacity: .5; cursor: default; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.row.end { justify-content: flex-end; }
+.spacer { flex: 1; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+.badge.ok { background: var(--ok-soft); color: var(--ok); }
+.badge.warn { background: var(--warn-soft); color: var(--warn); }
+.badge.bad { background: var(--bad-soft); color: var(--bad); }
+.badge.accent { background: var(--accent-soft); color: var(--accent); }
+.score { display: inline-grid; place-items: center; width: 40px; height: 28px; border-radius: 8px; font-weight: 800; }
+.score.hi { background: var(--ok-soft); color: var(--ok); } .score.mid { background: var(--warn-soft); color: var(--warn); } .score.lo { background: var(--surface-2); color: var(--muted); }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+th { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+tr.clickable { cursor: pointer; } tr.clickable:hover td { background: var(--surface-2); }
+.title-cell b { display: block; } .title-cell span { color: var(--muted); font-size: 12px; }
+.table-wrap { overflow-x: auto; }
+.empty { text-align: center; padding: 40px; color: var(--muted); }
+.alert { padding: 10px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; }
+.alert.warn { background: var(--warn-soft); color: var(--warn); } .alert.bad { background: var(--bad-soft); color: var(--bad); } .alert.ok { background: var(--ok-soft); color: var(--ok); } .alert.info { background: var(--accent-soft); color: var(--accent); }
+/* drawer */
+.drawer-bg { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 40; display: none; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 100vw); background: var(--surface); z-index: 41; overflow-y: auto; box-shadow: -8px 0 30px rgba(0,0,0,.2); padding: 20px; transform: translateX(100%); transition: transform .2s; }
+.drawer.open { transform: none; } .drawer-bg.open { display: block; }
+.drawer h2 { margin: 0 0 4px; font-size: 20px; }
+.description { white-space: pre-wrap; background: var(--surface-2); border-radius: 8px; padding: 12px; max-height: 360px; overflow-y: auto; font-size: 13px; }
+/* modal */
+.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 60; display: none; place-items: center; padding: 16px; }
+.modal-bg.open { display: grid; }
+.modal { background: var(--surface); border-radius: 14px; width: min(640px, 100%); max-height: 90vh; overflow-y: auto; padding: 20px; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+.modal h2 { margin: 0 0 12px; font-size: 17px; }
+.log { background: var(--surface-2); border-radius: 8px; padding: 10px; font: 12px/1.5 ui-monospace, Menlo, monospace; max-height: 160px; overflow-y: auto; white-space: pre-wrap; }
+.prompt { border: 2px solid var(--accent); border-radius: 10px; padding: 14px; margin: 12px 0; background: var(--accent-soft); }
+.prompt p { margin: 0 0 10px; font-weight: 600; color: var(--text); }
+.spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; display: inline-block; vertical-align: middle; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.kv { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; margin-bottom: 8px; }
+.dropzone { border: 2px dashed var(--border); border-radius: 10px; padding: 18px; text-align: center; color: var(--muted); cursor: pointer; }
+.dropzone.drag { border-color: var(--accent); background: var(--accent-soft); }
+.toasts { position: fixed; bottom: 16px; right: 16px; z-index: 80; display: flex; flex-direction: column; gap: 8px; }
+.toast { background: var(--text); color: var(--bg); padding: 10px 14px; border-radius: 8px; box-shadow: var(--shadow); max-width: 360px; }
+.toast.bad { background: var(--bad); color: #fff; }
+.sticky-save { position: sticky; bottom: 0; background: var(--surface); border-top: 1px solid var(--border); padding: 12px 16px; margin: 16px -16px -16px; border-radius: 0 0 var(--radius) var(--radius); }
+.source-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+.source-card.off { opacity: .7; }
+.hidden { display: none !important; }
+@media (max-width: 720px) {
+  main { padding: 12px; } header { padding: 10px 12px; } .stats { margin-left: 0; }
+  .hide-sm { display: none; } .kv { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎯 Candidatador</h1>
+  <nav id="nav">
+    <button data-tab="jobs" class="active">Vagas</button>
+    <button data-tab="applications">Candidaturas</button>
+    <button data-tab="documents">Documentos</button>
+    <button data-tab="profile">Perfil</button>
+    <button data-tab="settings">Configurações</button>
+  </nav>
+  <div class="stats" id="stats"></div>
+</header>
+
+<main>
+  <div id="warnings"></div>
+
+  <!-- ============================== VAGAS ============================== -->
+  <section id="tab-jobs">
+    <div class="card">
+      <div class="row"><h2 style="margin:0">Buscar vagas</h2><span class="spacer"></span>
+        <span class="muted small">Deixe as palavras-chave vazias para usar os cargos do seu perfil</span></div>
+      <div class="grid" style="margin-top:12px">
+        <label>Palavras-chave (separe por vírgula)<input id="s-keywords" placeholder="python, backend"></label>
+        <label>Local<input id="s-location" placeholder="São Paulo"></label>
+        <label>Publicadas há no máximo
+          <select id="s-days"><option value="">qualquer data</option><option value="1">1 dia</option><option value="3">3 dias</option><option value="7" selected>7 dias</option><option value="14">14 dias</option><option value="30">30 dias</option></select></label>
+        <label>Máx. por fonte<input id="s-limit" type="number" value="50" min="1" max="500"></label>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <label class="inline"><input type="checkbox" id="s-remote"> Somente remotas</label>
+        <label class="inline"><input type="checkbox" id="s-ai"> Refinar nota com IA</label>
+        <span class="muted small">Fontes:</span><span class="row" id="s-sources"></span>
+        <span class="spacer"></span>
+        <button class="btn primary" id="btn-search">🔎 Buscar</button>
+      </div>
+      <div id="search-result" style="margin-top:12px"></div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <input id="f-q" placeholder="Filtrar por título ou empresa..." style="max-width:280px">
+        <select id="f-status" style="max-width:170px">
+          <option value="new,shortlisted">Novas + favoritas</option><option value="new">Novas</option>
+          <option value="shortlisted">⭐ Favoritas</option><option value="applied">Aplicadas</option>
+          <option value="ignored">Ignoradas</option><option value="">Todas</option></select>
+        <select id="f-source" style="max-width:160px"><option value="">Todas as fontes</option></select>
+        <select id="f-remote" style="max-width:140px"><option value="">Remota ou não</option><option value="true">Só remotas</option><option value="false">Presenciais/híbridas</option></select>
+        <select id="f-auto" style="max-width:190px"><option value="">Qualquer candidatura</option><option value="true">⚡ Preenchimento automático</option><option value="false">Candidatura manual</option></select>
+        <select id="f-sort" style="max-width:150px"><option value="score">Maior nota</option><option value="posted">Mais recentes</option><option value="fetched">Buscadas por último</option></select>
+        <label class="inline">Nota mín. <input id="f-min" type="range" min="0" max="100" step="5" style="width:110px"> <b id="f-min-v"></b></label>
+      </div>
+    </div>
+
+    <div class="card" style="padding:0">
+      <div class="row" style="padding:12px 16px"><b id="jobs-count"></b><span class="spacer"></span>
+        <span class="muted small">Clique em uma vaga para ver detalhes e candidatar-se</span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Nota</th><th>Vaga</th><th class="hide-sm">Local</th><th class="hide-sm">Fonte</th><th class="hide-sm">Publicada</th><th>Status</th><th></th></tr></thead>
+        <tbody id="jobs-body"></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <!-- ============================== CANDIDATURAS ============================== -->
+  <section id="tab-applications" class="hidden">
+    <div class="card" style="padding:0">
+      <div class="row" style="padding:12px 16px"><h2 style="margin:0">Histórico de candidaturas</h2></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Quando</th><th>Vaga</th><th class="hide-sm">Via</th><th>Status</th><th class="hide-sm">Notas</th><th></th></tr></thead>
+        <tbody id="apps-body"></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <!-- ============================== DOCUMENTOS ============================== -->
+  <section id="tab-documents" class="hidden">
+    <div class="card">
+      <h2>Adicionar documento</h2>
+      <div class="dropzone" id="dropzone">📄 Arraste um arquivo aqui ou <u>clique para escolher</u><br><span class="small" id="drop-name">PDF, DOCX, TXT, imagens...</span>
+        <input type="file" id="d-file" class="hidden"></div>
+      <div class="grid" style="margin-top:12px">
+        <label>Tipo<select id="d-kind">
+          <option value="resume">Currículo</option><option value="cover_letter">Carta de apresentação</option>
+          <option value="certificate">Certificado</option><option value="course">Curso</option>
+          <option value="diploma">Diploma</option><option value="portfolio">Portfólio</option><option value="other">Outro</option></select></label>
+        <label>Título / versão<input id="d-title" placeholder="Currículo backend PT"></label>
+        <label>Idioma<select id="d-lang"><option value="pt">Português</option><option value="en">Inglês</option><option value="es">Espanhol</option></select></label>
+        <label>Tags (vírgula)<input id="d-tags" placeholder="python, backend"></label>
+        <label>Instituição<input id="d-issued-by" placeholder="(certificados/cursos)"></label>
+        <label>Data de emissão<input id="d-issued-at" placeholder="2025-03"></label>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <label class="inline"><input type="checkbox" id="d-default"> Versão padrão deste tipo</label>
+        <span class="spacer"></span><button class="btn primary" id="btn-upload">Adicionar</button>
+      </div>
+      <p class="muted small">As tags ajudam a escolher automaticamente o currículo certo: a versão cujas tags mais aparecem na descrição da vaga é enviada.</p>
+    </div>
+    <div id="docs-list"></div>
+  </section>
+
+  <!-- ============================== PERFIL ============================== -->
+  <section id="tab-profile" class="hidden">
+    <div class="card">
+      <h2>Dados pessoais <span class="muted small">— usados para preencher formulários</span></h2>
+      <div class="grid" id="p-personal"></div>
+      <h3>Resumo profissional</h3>
+      <div class="grid">
+        <label>Título profissional<input data-p="headline"></label>
+        <label>Senioridade<select data-p="seniority">
+          <option value="">—</option><option value="estagio">Estágio</option><option value="junior">Júnior</option><option value="pleno">Pleno</option>
+          <option value="senior">Sênior</option><option value="especialista">Especialista</option><option value="lideranca">Liderança</option></select></label>
+        <label>Anos de experiência<input data-p="years_of_experience" type="number" step="0.5"></label>
+      </div>
+      <label style="margin-top:12px">Resumo<textarea data-p="summary"></textarea></label>
+      <label style="margin-top:12px">Habilidades (vírgula) — comparadas com as vagas<textarea data-p="skills" data-list></textarea></label>
+      <h3>Idiomas</h3>
+      <div id="p-languages"></div>
+      <button class="btn small" id="add-language">+ idioma</button>
+
+      <h3>O que você procura</h3>
+      <div class="grid wide">
+        <label>Cargos desejados (vírgula) — palavras-chave padrão da busca<input data-p="target.roles" data-list></label>
+        <label>Palavras obrigatórias (a vaga precisa ter ao menos uma)<input data-p="target.keywords_required" data-list></label>
+        <label>Palavras excluídas (no título)<input data-p="target.keywords_excluded" data-list></label>
+        <label>Locais aceitos<input data-p="target.locations" data-list></label>
+        <label>Tipos de contrato<input data-p="target.contract_types" data-list placeholder="clt, pj"></label>
+        <label>Empresas excluídas<input data-p="target.companies_excluded" data-list></label>
+        <label>Trabalho remoto<select data-p="target.remote">
+          <option value="only">Somente remoto</option><option value="preferred">Prefiro remoto</option><option value="any">Tanto faz</option><option value="no">Não quero remoto</option></select></label>
+        <label>Salário mínimo (R$)<input data-p="target.min_salary_brl" type="number"></label>
+      </div>
+
+      <h3>Respostas padrão para formulários</h3>
+      <p class="muted small" style="margin-top:0">A chave identifica a pergunta. Chaves conhecidas: authorized_to_work, requires_sponsorship, notice_period, salary_expectation, available_to_relocate, how_did_you_hear. Qualquer outra chave vira um trecho procurado na pergunta (ex.: <code>aceita_pj</code> responde “Você aceita PJ?”).</p>
+      <div id="p-answers"></div>
+      <button class="btn small" id="add-answer">+ resposta</button>
+      <datalist id="answer-keys"><option value="authorized_to_work"><option value="requires_sponsorship"><option value="notice_period"><option value="salary_expectation"><option value="available_to_relocate"><option value="how_did_you_hear"></datalist>
+
+      <div class="sticky-save row end"><span class="muted small" id="profile-dirty"></span><button class="btn primary" id="save-profile">Salvar perfil</button></div>
+    </div>
+  </section>
+
+  <!-- ============================== CONFIGURAÇÕES ============================== -->
+  <section id="tab-settings" class="hidden">
+    <div class="card">
+      <h2>Fontes de vagas</h2>
+      <div class="grid wide" id="c-sources"></div>
+    </div>
+    <div class="card">
+      <h2>Pontuação, IA e candidaturas</h2>
+      <div class="grid">
+        <label>Nota mínima exibida<input id="c-min-score" type="number" min="0" max="100"></label>
+        <label>Provedor de IA<select id="c-ai-provider">
+          <option value="auto">Automático</option>
+          <option value="claude-cli">Claude Code CLI (sua assinatura)</option>
+          <option value="codex-cli">Codex CLI</option>
+          <option value="api">Anthropic API (chave)</option></select></label>
+        <label>Modelo de IA<input id="c-ai-model" placeholder="padrão do provedor"></label>
+        <label>Esforço da IA<select id="c-ai-effort"><option value="low">low (rápido)</option><option value="medium">medium</option><option value="high">high (mais cuidadoso)</option></select></label>
+        <label>Modo padrão de candidatura<select id="c-apply-mode"><option value="review">review — confirmo antes de enviar</option><option value="auto">auto — envia sozinho</option></select></label>
+        <label>Limite de envios por dia<input id="c-max-day" type="number" min="1"></label>
+        <label>Intervalo entre envios (s)<input id="c-delay" type="number" min="0"></label>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <label class="inline"><input type="checkbox" id="c-use-ai"> Usar IA por padrão</label>
+        <label class="inline"><input type="checkbox" id="c-headless"> Navegador invisível no modo auto</label>
+      </div>
+      <div class="sticky-save row end"><button class="btn primary" id="save-config">Salvar configurações</button></div>
+    </div>
+    <div class="card"><h2>Sistema</h2><div id="sysinfo" class="small"></div></div>
+  </section>
+</main>
+
+<!-- job drawer -->
+<div class="drawer-bg" id="drawer-bg"></div>
+<aside class="drawer" id="drawer"></aside>
+
+<!-- apply modal -->
+<div class="modal-bg" id="modal-bg"><div class="modal" id="modal"></div></div>
+<div class="toasts" id="toasts"></div>
+
+<script>
+"use strict";
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const safeUrl = (u) => /^https?:\/\//i.test(u || "") ? u : "#";
+const state = { status: null, config: null, profile: null, docs: [], sources: [], currentJob: null, applyPoll: null };
+
+async function api(path, opts = {}) {
+  const init = { ...opts, headers: { "X-Candidatador": "1", ...(opts.headers || {}) } };
+  if (opts.json !== undefined) { init.body = JSON.stringify(opts.json); init.headers["Content-Type"] = "application/json"; }
+  const res = await fetch(path, init);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail || data));
+  return data;
+}
+function toast(msg, bad = false) {
+  const el = document.createElement("div"); el.className = "toast" + (bad ? " bad" : ""); el.textContent = msg;
+  $("#toasts").append(el); setTimeout(() => el.remove(), bad ? 7000 : 3500);
+}
+const debounce = (fn, ms = 300) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+const splitList = (s) => String(s || "").split(",").map((x) => x.trim()).filter(Boolean);
+function relDate(iso) {
+  if (!iso) return "—";
+  const d = (Date.now() - new Date(iso).getTime()) / 864e5;
+  if (d < 1) return "hoje"; if (d < 2) return "ontem"; if (d < 31) return `há ${Math.floor(d)} dias`;
+  return new Date(iso).toLocaleDateString("pt-BR");
+}
+const fmtDateTime = (iso) => iso ? new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—";
+const scoreCls = (s) => s >= 70 ? "hi" : s >= 45 ? "mid" : "lo";
+const STATUS_LABEL = { new: "nova", shortlisted: "⭐ favorita", applied: "aplicada", ignored: "ignorada" };
+const APP_STATUS = { submitted: ["enviada", "ok"], manual: ["manual", "ok"], filled: ["preenchida (dry-run)", "accent"], skipped: ["não enviada", "warn"], failed: ["falhou", "bad"] };
+const KIND_LABEL = { resume: "Currículos", cover_letter: "Cartas de apresentação", certificate: "Certificados", course: "Cursos", diploma: "Diplomas", portfolio: "Portfólio", other: "Outros" };
+const ORIGIN_LABEL = { profile: "perfil", answers: "resposta padrão", ai: "IA", user: "você" };
+
+/* ------------------------------------------------------------------ tabs */
+function showTab(name) {
+  $$("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+  $$("main > section").forEach((s) => s.classList.toggle("hidden", s.id !== "tab-" + name));
+  ({ jobs: loadJobs, applications: loadApplications, documents: loadDocs, profile: loadProfile, settings: loadSettings })[name]();
+  history.replaceState(null, "", "#" + name);
+}
+$$("#nav button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+
+/* ------------------------------------------------------------------ status */
+async function loadStatus() {
+  const s = state.status = await api("/api/status");
+  $("#stats").innerHTML = `
+    <span class="chip">novas <b>${s.jobs.new}</b></span>
+    <span class="chip">⭐ <b>${s.jobs.shortlisted}</b></span>
+    <span class="chip">aplicadas <b>${s.jobs.applied}</b></span>
+    <span class="chip">hoje <b>${s.applied_today}/${s.max_per_day}</b></span>`;
+  const w = [];
+  if (!s.playwright_installed) w.push(`O preenchimento automático precisa do Playwright: <code>uv sync --extra apply && uv run playwright install chromium</code>`);
+  if (state.config?.matching.use_ai && !s.ai_provider) w.push(`A IA está ativada, mas nenhum provedor está disponível. Instale e faça login no Claude Code (<code>claude</code>) ou no Codex (<code>codex</code>), ou use a API com <code>ANTHROPIC_API_KEY</code>.`);
+  $("#warnings").innerHTML = w.map((x) => `<div class="alert warn">${x}</div>`).join("");
+}
+
+/* ------------------------------------------------------------------ search */
+async function loadSourcesForSearch() {
+  state.sources = await api("/api/sources");
+  $("#s-sources").innerHTML = state.sources.map((s) => `
+    <label class="inline" title="${esc(s.terms_note || "")}"><input type="checkbox" value="${esc(s.name)}" ${s.enabled ? "checked" : ""}> ${esc(s.display_name.split(" (")[0])}</label>`).join("");
+}
+$("#btn-search").addEventListener("click", async () => {
+  const btn = $("#btn-search"); btn.disabled = true;
+  $("#search-result").innerHTML = `<span class="spinner"></span> Buscando nas fontes selecionadas... isso pode levar alguns segundos.`;
+  try {
+    const selected = $$("#s-sources input:checked").map((i) => i.value);
+    if (!selected.length) throw new Error("Selecione ao menos uma fonte.");
+    const r = await api("/api/search", { method: "POST", json: {
+      keywords: splitList($("#s-keywords").value), location: $("#s-location").value || null,
+      remote: $("#s-remote").checked, days: $("#s-days").value ? +$("#s-days").value : null,
+      limit: +$("#s-limit").value || 50, sources: selected, ai: $("#s-ai").checked } });
+    const errs = Object.entries(r.errors).map(([k, v]) => `<div class="alert bad">✗ ${esc(k)}: ${esc(v)}</div>`).join("");
+    $("#f-status").value = "new,shortlisted"; $("#f-sort").value = "score";
+    $("#f-q").value = ""; $("#f-source").value = ""; $("#f-remote").value = ""; $("#f-auto").value = "";
+    await Promise.all([loadJobs(), loadStatus()]);
+    const visible = state.jobsTotal;
+    const hidden = r.stored - Math.min(visible, r.stored);
+    $("#search-result").innerHTML = `<div class="alert ok">${r.fetched} vagas encontradas · ${r.filtered_out} descartadas pelos filtros do perfil · ${r.duplicates} duplicadas · <b>${r.stored} salvas</b> — veja a lista abaixo ↓</div>
+      ${hidden > 0 ? `<div class="alert warn row">${hidden} vaga(s) salvas estão escondidas por terem nota abaixo de ${$("#f-min").value}.
+        <button class="btn small" id="show-all">Mostrar todas</button></div>` : ""}${errs}`;
+    if ($("#show-all")) $("#show-all").onclick = () => { $("#f-min").value = 0; $("#f-min-v").textContent = "0"; loadJobs(); $("#search-result .alert.warn").remove(); };
+    $("#jobs-count").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (e) { $("#search-result").innerHTML = `<div class="alert bad">${esc(e.message)}</div>`; }
+  finally { btn.disabled = false; }
+});
+
+/* ------------------------------------------------------------------ jobs list */
+async function loadJobs() {
+  const p = new URLSearchParams({ q: $("#f-q").value, status: $("#f-status").value, source: $("#f-source").value,
+    sort: $("#f-sort").value, min_score: $("#f-min").value, limit: 300 });
+  if ($("#f-remote").value) p.set("remote", $("#f-remote").value);
+  if ($("#f-auto").value) p.set("auto_apply", $("#f-auto").value);
+  const data = await api("/api/jobs?" + p);
+  const cur = $("#f-source").value;
+  $("#f-source").innerHTML = `<option value="">Todas as fontes</option>` + data.sources.map((s) => `<option ${s === cur ? "selected" : ""}>${esc(s)}</option>`).join("");
+  state.jobsTotal = data.total;
+  $("#jobs-count").textContent = `${data.total} vaga${data.total === 1 ? "" : "s"}`;
+  $("#jobs-body").innerHTML = data.items.length ? data.items.map((j) => `
+    <tr class="clickable" data-id="${esc(j.id)}">
+      <td><span class="score ${scoreCls(j.score)}">${Math.round(j.score || 0)}</span></td>
+      <td class="title-cell"><b>${esc(j.title)}</b><span>${esc(j.company)}${j.salary ? " · " + esc(j.salary) : ""}</span>
+        ${j.auto_apply ? `<span class="badge accent">⚡ automático</span>` : ""}</td>
+      <td class="hide-sm">${j.remote ? "🌎 remota" : esc(j.location || "—")}</td>
+      <td class="hide-sm"><span class="badge">${esc(j.source)}</span></td>
+      <td class="hide-sm small">${relDate(j.posted_at)}</td>
+      <td><span class="badge ${j.status === "applied" ? "ok" : j.status === "shortlisted" ? "warn" : ""}">${STATUS_LABEL[j.status]}</span></td>
+      <td class="row" style="flex-wrap:nowrap">
+        <button class="btn small" data-act="shortlisted" title="Favoritar">⭐</button>
+        <button class="btn small" data-act="ignored" title="Ignorar">🚫</button>
+      </td>
+    </tr>`).join("") : `<tr><td colspan="7" class="empty">Nenhuma vaga com esses filtros. Faça uma busca acima ou reduza a nota mínima.</td></tr>`;
+}
+$("#jobs-body").addEventListener("click", async (ev) => {
+  const tr = ev.target.closest("tr[data-id]"); if (!tr) return;
+  const act = ev.target.closest("button[data-act]");
+  if (act) {
+    ev.stopPropagation();
+    await api(`/api/jobs/${encodeURIComponent(tr.dataset.id)}`, { method: "PATCH", json: { status: act.dataset.act } });
+    toast(act.dataset.act === "ignored" ? "Vaga ignorada" : "Adicionada às favoritas");
+    loadJobs(); loadStatus(); return;
+  }
+  openJob(tr.dataset.id);
+});
+["#f-status", "#f-source", "#f-remote", "#f-auto", "#f-sort"].forEach((s) => $(s).addEventListener("change", loadJobs));
+$("#f-q").addEventListener("input", debounce(loadJobs));
+$("#f-min").addEventListener("input", () => { $("#f-min-v").textContent = $("#f-min").value; });
+$("#f-min").addEventListener("change", loadJobs);
+
+/* ------------------------------------------------------------------ job drawer */
+function closeDrawer() { $("#drawer").classList.remove("open"); $("#drawer-bg").classList.remove("open"); }
+$("#drawer-bg").addEventListener("click", closeDrawer);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#modal-bg").classList.contains("open")) closeDrawer(); });
+
+async function openJob(id) {
+  const [job] = await Promise.all([api(`/api/jobs/${encodeURIComponent(id)}`), state.docs.length ? null : loadDocsData()]);
+  state.currentJob = job;
+  const resumes = state.docs.filter((d) => d.kind === "resume");
+  const cfg = state.config;
+  const apps = job.applications.map((a) => `<li>${fmtDateTime(a.created_at)} — ${appBadge(a.status)} via ${esc(a.applier)} ${a.error ? `<span class="muted">${esc(a.error)}</span>` : ""}</li>`).join("");
+  $("#drawer").innerHTML = `
+    <div class="row"><span class="score ${scoreCls(job.score)}">${Math.round(job.score || 0)}</span><span class="spacer"></span>
+      <button class="btn small" id="dj-close">✕ Fechar</button></div>
+    <h2 style="margin-top:12px">${esc(job.title)}</h2>
+    <div class="muted">${esc(job.company)} · ${job.remote ? "🌎 remota" : esc(job.location || "local não informado")} · ${esc(job.source)} · publicada ${relDate(job.posted_at)}</div>
+    <div class="row" style="margin:10px 0">
+      ${job.employment_type ? `<span class="badge">${esc(job.employment_type)}</span>` : ""}
+      ${job.salary ? `<span class="badge ok">${esc(job.salary)}</span>` : ""}
+      <span class="badge">${STATUS_LABEL[job.status]}</span>
+      ${job.auto_apply ? `<span class="badge accent">⚡ preenchimento automático</span>` : `<span class="badge warn">candidatura manual</span>`}
+      <a href="${esc(safeUrl(job.url))}" target="_blank" rel="noopener">abrir vaga ↗</a>
+    </div>
+    ${job.score_reasons.length ? `<ul class="small">${job.score_reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}
+
+    <div class="card" style="margin-top:12px">
+      <h2>Candidatar-se</h2>
+      ${job.status === "applied" ? `<div class="alert ok">Você já se candidatou a esta vaga.</div>` : ""}
+      ${job.auto_apply ? "" : `<div class="alert info">Ainda não há preenchimento automático para ${esc(job.source)}. O candidatador indica o currículo, você abre a vaga, se candidata no site e registra aqui.</div>`}
+      <div class="grid">
+        <label>Currículo<select id="aj-doc"><option value="">Automático (pelas tags)</option>
+          ${resumes.map((d) => `<option value="${d.id}">${esc(d.title)} (${esc(d.language)})${d.is_default ? " ★" : ""}</option>`).join("")}</select></label>
+        ${job.auto_apply ? `<label>Modo<select id="aj-mode">
+          <option value="review" ${cfg.apply.mode === "review" ? "selected" : ""}>Revisar antes de enviar</option>
+          <option value="auto" ${cfg.apply.mode === "auto" ? "selected" : ""}>Enviar automaticamente</option></select></label>` : ""}
+      </div>
+      ${resumes.length ? "" : `<div class="alert warn" style="margin-top:10px">Nenhum currículo cadastrado — adicione em <a href="#documents" onclick="showTab('documents');closeDrawer()">Documentos</a>.</div>`}
+      ${job.auto_apply ? `
+      <div class="row" style="margin-top:10px">
+        <label class="inline"><input type="checkbox" id="aj-dry"> Teste (preenche mas não envia)</label>
+        <label class="inline"><input type="checkbox" id="aj-ai" ${cfg.matching.use_ai ? "checked" : ""}> IA para perguntas abertas</label>
+        <label class="inline"><input type="checkbox" id="aj-letter"> Gerar carta com IA</label>
+      </div>
+      <div class="row end" style="margin-top:12px"><button class="btn primary" id="aj-go">🚀 Candidatar-se</button></div>
+      <p class="muted small">Uma janela do navegador vai abrir. Perguntas que o candidatador não souber responder e a confirmação final aparecem aqui nesta página.</p>` : `
+      <div class="row end" style="margin-top:12px">
+        <button class="btn" id="aj-download">⬇️ Baixar currículo</button>
+        <a class="btn" style="text-decoration:none" href="${esc(safeUrl(job.apply_url || job.url))}" target="_blank" rel="noopener">Abrir vaga ↗</a>
+        <button class="btn primary" id="aj-manual">✅ Já me candidatei</button></div>`}
+    </div>
+    ${apps ? `<h3>Tentativas anteriores</h3><ul class="small">${apps}</ul>` : ""}
+    <div class="row" style="margin:12px 0">
+      <button class="btn small" data-st="shortlisted">⭐ Favoritar</button><button class="btn small" data-st="ignored">🚫 Ignorar</button><button class="btn small" data-st="new">↺ Marcar como nova</button></div>
+    <h3>Descrição</h3><div class="description">${esc(job.description || "Sem descrição.")}</div>`;
+  $("#drawer").classList.add("open"); $("#drawer-bg").classList.add("open"); $("#drawer").scrollTop = 0;
+  $("#dj-close").onclick = closeDrawer;
+  $$("#drawer [data-st]").forEach((b) => b.onclick = async () => {
+    await api(`/api/jobs/${encodeURIComponent(job.id)}`, { method: "PATCH", json: { status: b.dataset.st } });
+    toast("Status atualizado"); openJob(job.id); loadJobs(); loadStatus();
+  });
+  if ($("#aj-go")) $("#aj-go").onclick = () => startApply(job);
+  if ($("#aj-manual")) $("#aj-manual").onclick = async () => {
+    await api(`/api/jobs/${encodeURIComponent(job.id)}/manual`, { method: "POST", json: { doc_id: +$("#aj-doc").value || null } });
+    toast("Candidatura registrada"); openJob(job.id); loadJobs(); loadStatus();
+  };
+  if ($("#aj-download")) $("#aj-download").onclick = () => {
+    const id = $("#aj-doc").value || (resumes.find((d) => d.is_default) || resumes[0] || {}).id;
+    if (!id) return toast("Nenhum currículo cadastrado", true);
+    window.open(`/api/documents/${id}/file`, "_blank");
+  };
+}
+
+/* ------------------------------------------------------------------ apply flow */
+async function startApply(job) {
+  try {
+    const sess = await api(`/api/jobs/${encodeURIComponent(job.id)}/apply`, { method: "POST", json: {
+      doc_id: +$("#aj-doc").value || null, mode: $("#aj-mode").value, dry_run: $("#aj-dry").checked,
+      ai: $("#aj-ai").checked, cover_letter: $("#aj-letter").checked } });
+    $("#modal-bg").classList.add("open");
+    renderApply(sess, job); pollApply(sess.id, job);
+  } catch (e) { toast(e.message, true); }
+}
+function pollApply(id, job) {
+  clearTimeout(state.applyPoll);
+  state.applyPoll = setTimeout(async () => {
+    try {
+      const sess = await api(`/api/apply/${id}`);
+      renderApply(sess, job);
+      if (sess.state !== "done") pollApply(id, job);
+      else { loadJobs(); loadStatus(); }
+    } catch (e) { toast(e.message, true); }
+  }, 900);
+}
+let renderedPromptId = null;
+function renderApply(sess, job) {
+  const m = $("#modal");
+  const promptId = sess.prompt?.id || null;
+  // don't re-render while the user is typing an answer to the same prompt
+  if (sess.state === "waiting" && promptId === renderedPromptId) { $("#apply-log").textContent = sess.log.join("\n"); return; }
+  renderedPromptId = promptId;
+  let body = "";
+  if (sess.state === "waiting" && sess.prompt) {
+    const p = sess.prompt;
+    if (p.kind === "confirm") {
+      body = `<div class="prompt"><p>${esc(p.text)}</p><div class="row">
+        <button class="btn primary" data-v="true">Sim</button><button class="btn" data-v="false">Não</button></div></div>`;
+    } else {
+      const opts = p.options?.length ? `<div class="row" style="margin-bottom:8px">${p.options.map((o) => `<button class="btn small" data-opt="${esc(o)}">${esc(o)}</button>`).join("")}</div>` : "";
+      body = `<div class="prompt"><p>O formulário pergunta:</p><p style="font-weight:500">${esc(p.text)}</p>${opts}
+        <textarea id="prompt-answer" placeholder="Sua resposta..."></textarea>
+        <div class="row" style="margin-top:8px"><button class="btn primary" id="prompt-send">Responder</button>
+        <button class="btn" id="prompt-skip">Pular (deixar em branco)</button></div>
+        <p class="small muted" style="margin:8px 0 0">Dica: salve respostas recorrentes em Perfil → Respostas padrão.</p></div>`;
+    }
+  } else if (sess.state !== "done") {
+    body = `<p><span class="spinner"></span> Trabalhando no navegador...</p>`;
+  } else {
+    body = renderApplyResult(sess.result || {}, job);
+  }
+  m.innerHTML = `<h2>Candidatura: ${esc(job.title)} <span class="muted small">@ ${esc(job.company)}</span></h2>
+    ${body}<h3 class="small muted">Registro</h3><div class="log" id="apply-log">${esc(sess.log.join("\n"))}</div>
+    <div class="row end" style="margin-top:12px">${sess.state === "done" ? `<button class="btn" id="apply-close">Fechar</button>` : `<span class="muted small">Não feche esta página até terminar.</span>`}</div>`;
+  const respond = async (value) => {
+    try { await api(`/api/apply/${sess.id}/respond`, { method: "POST", json: { prompt_id: sess.prompt.id, value } });
+      m.querySelector(".prompt").innerHTML = `<span class="spinner"></span> Continuando...`; }
+    catch (e) { toast(e.message, true); }
+  };
+  $$("[data-v]", m).forEach((b) => b.onclick = () => respond(b.dataset.v === "true"));
+  $$("[data-opt]", m).forEach((b) => b.onclick = () => respond(b.dataset.opt));
+  if ($("#prompt-send")) { $("#prompt-answer").focus(); $("#prompt-send").onclick = () => respond($("#prompt-answer").value.trim() || null); }
+  if ($("#prompt-skip")) $("#prompt-skip").onclick = () => respond(null);
+  if ($("#apply-close")) $("#apply-close").onclick = () => { $("#modal-bg").classList.remove("open"); renderedPromptId = null; openJob(job.id); };
+  const log = $("#apply-log"); log.scrollTop = log.scrollHeight;
+}
+function renderApplyResult(r, job) {
+  if (r.manual_required) return `<div class="alert info">Esta vaga não tem preenchimento automático. Abra a vaga, candidate-se no site e clique em “Já me candidatei”.</div>`;
+  if (!r.status) return `<div class="alert warn">${esc(r.error || "Nada foi feito.")}</div>`;
+  const [label, cls] = APP_STATUS[r.status] || [r.status, ""];
+  const answers = Object.entries(r.answers || {});
+  return `<div class="alert ${cls === "accent" ? "info" : cls}"><b>Resultado: ${esc(label)}</b>${r.error ? `<br>${esc(r.error)}` : ""}</div>
+    ${r.resume ? `<p class="small">Currículo enviado: <b>${esc(r.resume.title)}</b></p>` : ""}
+    ${r.notes?.length ? `<h3 class="small muted">Observações</h3><ul class="small">${r.notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}
+    ${answers.length ? `<h3 class="small muted">Respostas preenchidas</h3><table class="small"><tr><th>Pergunta</th><th>Resposta</th><th>Origem</th></tr>
+      ${answers.map(([q, a]) => `<tr><td>${esc(q)}</td><td>${esc(a.value)}${a.needs_review ? ' <span class="badge warn">revisar</span>' : ""}</td><td>${esc(ORIGIN_LABEL[a.origin] || a.origin)}</td></tr>`).join("")}</table>` : ""}`;
+}
+
+/* ------------------------------------------------------------------ applications */
+const appBadge = (s) => { const [l, c] = APP_STATUS[s] || [s, ""]; return `<span class="badge ${c}">${esc(l)}</span>`; };
+async function loadApplications() {
+  const rows = await api("/api/applications");
+  $("#apps-body").innerHTML = rows.length ? rows.map((a) => `
+    <tr class="clickable" data-id="${esc(a.job.id)}">
+      <td class="small">${fmtDateTime(a.created_at)}</td>
+      <td class="title-cell"><b>${esc(a.job.title)}</b><span>${esc(a.job.company)}</span></td>
+      <td class="hide-sm">${esc(a.applier)}<div class="muted small">${esc(a.mode)}</div></td>
+      <td>${appBadge(a.status)}</td>
+      <td class="hide-sm small muted">${esc((a.error || a.notes || "").slice(0, 120))}</td>
+      <td class="small muted">${Object.keys(a.answers).length} respostas</td>
+    </tr>`).join("") : `<tr><td colspan="6" class="empty">Nenhuma candidatura ainda.</td></tr>`;
+}
+$("#apps-body").addEventListener("click", (ev) => { const tr = ev.target.closest("tr[data-id]"); if (tr) openJob(tr.dataset.id); });
+
+/* ------------------------------------------------------------------ documents */
+async function loadDocsData() { state.docs = await api("/api/documents"); }
+async function loadDocs() {
+  await loadDocsData();
+  const groups = {};
+  state.docs.forEach((d) => (groups[d.kind] ||= []).push(d));
+  $("#docs-list").innerHTML = Object.keys(groups).length ? Object.entries(KIND_LABEL).filter(([k]) => groups[k]).map(([k, label]) => `
+    <div class="card" style="padding:0"><div style="padding:12px 16px"><h2 style="margin:0">${label}</h2></div>
+    <div class="table-wrap"><table><thead><tr><th>Título</th><th class="hide-sm">Idioma</th><th class="hide-sm">Tags</th><th class="hide-sm">Texto</th><th></th></tr></thead><tbody>
+    ${groups[k].map((d) => `<tr data-id="${d.id}">
+      <td class="title-cell"><b>${d.is_default ? "★ " : ""}${esc(d.title)}</b><span>${esc(d.original_name)}${d.issued_by ? " · " + esc(d.issued_by) : ""}${d.issued_at ? " · " + esc(d.issued_at) : ""}</span></td>
+      <td class="hide-sm">${esc(d.language)}</td>
+      <td class="hide-sm">${d.tags.map((t) => `<span class="badge">${esc(t)}</span>`).join(" ")}</td>
+      <td class="hide-sm small ${d.text_chars ? "" : "muted"}">${d.text_chars ? d.text_chars + " caract." : "sem texto"}</td>
+      <td class="row" style="justify-content:flex-end">
+        ${d.is_default ? "" : `<button class="btn small" data-act="default">★ Padrão</button>`}
+        <button class="btn small" data-act="edit">Editar</button>
+        <button class="btn small" data-act="open">Abrir</button>
+        <button class="btn small danger" data-act="delete">Excluir</button></td></tr>`).join("")}
+    </tbody></table></div></div>`).join("") : `<div class="card empty">Nenhum documento ainda. Comece adicionando seu currículo.</div>`;
+}
+$("#docs-list").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("button[data-act]"); if (!b) return;
+  const id = b.closest("tr").dataset.id; const doc = state.docs.find((d) => d.id == id);
+  try {
+    if (b.dataset.act === "open") return window.open(`/api/documents/${id}/file`, "_blank");
+    if (b.dataset.act === "delete") { if (!confirm(`Excluir “${doc.title}”?`)) return; await api(`/api/documents/${id}`, { method: "DELETE" }); }
+    if (b.dataset.act === "default") await api(`/api/documents/${id}`, { method: "PATCH", json: { is_default: true } });
+    if (b.dataset.act === "edit") {
+      const title = prompt("Título / versão:", doc.title); if (title === null) return;
+      const tags = prompt("Tags (vírgula):", doc.tags.join(", ")); if (tags === null) return;
+      await api(`/api/documents/${id}`, { method: "PATCH", json: { title, tags: splitList(tags) } });
+    }
+    toast("Documento atualizado"); loadDocs();
+  } catch (e) { toast(e.message, true); }
+});
+const dz = $("#dropzone");
+dz.addEventListener("click", () => $("#d-file").click());
+dz.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("drag"); });
+dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
+dz.addEventListener("drop", (e) => { e.preventDefault(); dz.classList.remove("drag"); $("#d-file").files = e.dataTransfer.files; fileChosen(); });
+$("#d-file").addEventListener("change", fileChosen);
+function fileChosen() {
+  const f = $("#d-file").files[0]; if (!f) return;
+  $("#drop-name").textContent = `Selecionado: ${f.name}`;
+  if (!$("#d-title").value) $("#d-title").value = f.name.replace(/\.[^.]+$/, "");
+}
+$("#btn-upload").addEventListener("click", async () => {
+  const f = $("#d-file").files[0]; if (!f) return toast("Escolha um arquivo", true);
+  const fd = new FormData();
+  fd.append("file", f); fd.append("kind", $("#d-kind").value); fd.append("title", $("#d-title").value);
+  fd.append("language", $("#d-lang").value); fd.append("tags", $("#d-tags").value);
+  fd.append("is_default", $("#d-default").checked); fd.append("issued_by", $("#d-issued-by").value); fd.append("issued_at", $("#d-issued-at").value);
+  try {
+    const d = await api("/api/documents", { method: "POST", body: fd });
+    toast(`“${d.title}” adicionado${d.text_chars ? ` (${d.text_chars} caracteres de texto)` : ""}`);
+    ["#d-title", "#d-tags", "#d-issued-by", "#d-issued-at"].forEach((s) => $(s).value = "");
+    $("#d-file").value = ""; $("#d-default").checked = false; $("#drop-name").textContent = "PDF, DOCX, TXT, imagens...";
+    loadDocs();
+  } catch (e) { toast(e.message, true); }
+});
+
+/* ------------------------------------------------------------------ profile */
+const PERSONAL = [["full_name", "Nome completo"], ["email", "E-mail"], ["phone", "Telefone"], ["city", "Cidade"], ["state", "Estado"], ["country", "País"], ["linkedin", "LinkedIn (URL)"], ["github", "GitHub (URL)"], ["portfolio", "Portfólio / site"]];
+$("#p-personal").innerHTML = PERSONAL.map(([k, l]) => `<label>${l}<input data-p="personal.${k}"></label>`).join("");
+const getPath = (o, p) => p.split(".").reduce((a, k) => a?.[k], o);
+const setPath = (o, p, v) => { const ks = p.split("."); const last = ks.pop(); ks.reduce((a, k) => (a[k] ||= {}), o)[last] = v; };
+function langRow(l = { name: "", level: "" }) {
+  return `<div class="kv"><input placeholder="Idioma" value="${esc(l.name)}" data-l="name"><input placeholder="Nível (básico, intermediário, avançado, fluente)" value="${esc(l.level)}" data-l="level"><button class="btn small danger" data-rm>✕</button></div>`;
+}
+function answerRow(k = "", v = "") {
+  return `<div class="kv"><input list="answer-keys" placeholder="chave (ex.: notice_period, aceita_pj)" value="${esc(k)}" data-a="key"><input placeholder="resposta" value="${esc(v)}" data-a="value"><button class="btn small danger" data-rm>✕</button></div>`;
+}
+async function loadProfile() {
+  const p = state.profile = await api("/api/profile");
+  $$("[data-p]").forEach((el) => { const v = getPath(p, el.dataset.p); el.value = el.hasAttribute("data-list") ? (v || []).join(", ") : (v ?? ""); });
+  $("#p-languages").innerHTML = (p.languages || []).map(langRow).join("");
+  $("#p-answers").innerHTML = Object.entries(p.answers || {}).map(([k, v]) => answerRow(k, v)).join("");
+  $("#profile-dirty").textContent = "";
+}
+$("#add-language").onclick = () => $("#p-languages").insertAdjacentHTML("beforeend", langRow());
+$("#add-answer").onclick = () => $("#p-answers").insertAdjacentHTML("beforeend", answerRow());
+$("#tab-profile").addEventListener("click", (e) => { if (e.target.matches("[data-rm]")) { e.target.parentElement.remove(); markDirty(); } });
+const markDirty = () => { $("#profile-dirty").textContent = "Alterações não salvas"; };
+$("#tab-profile").addEventListener("input", markDirty);
+$("#save-profile").onclick = async () => {
+  const p = structuredClone(state.profile);
+  $$("[data-p]").forEach((el) => {
+    let v = el.value;
+    if (el.hasAttribute("data-list")) v = splitList(v);
+    else if (el.type === "number") v = v === "" ? null : +v;
+    setPath(p, el.dataset.p, v);
+  });
+  p.languages = $$("#p-languages .kv").map((r) => ({ name: $("[data-l=name]", r).value.trim(), level: $("[data-l=level]", r).value.trim() })).filter((l) => l.name);
+  p.answers = Object.fromEntries($$("#p-answers .kv").map((r) => [$("[data-a=key]", r).value.trim(), $("[data-a=value]", r).value.trim()]).filter(([k]) => k));
+  try { state.profile = await api("/api/profile", { method: "PUT", json: p }); $("#profile-dirty").textContent = ""; toast("Perfil salvo"); }
+  catch (e) { toast(e.message, true); }
+};
+
+/* ------------------------------------------------------------------ settings */
+async function loadSettings() {
+  const [cfg, sources] = await Promise.all([api("/api/config"), api("/api/sources")]);
+  state.config = cfg; state.sources = sources;
+  $("#c-sources").innerHTML = sources.map((s) => {
+    const st = s.settings || {};
+    const list = s.list_setting ? `<label style="margin-top:8px">Empresas (slugs, vírgula) — ${esc(s.list_setting)}<input data-src="${esc(s.name)}" data-key="${esc(s.list_setting)}" data-list value="${esc((st[s.list_setting] || []).join(", "))}"></label>` : "";
+    const jobspy = s.name === "jobspy" ? `<label style="margin-top:8px">Sites (vírgula)<input data-src="jobspy" data-key="sites" data-list value="${esc((st.sites || []).join(", "))}"></label>
+      <label style="margin-top:8px">País (Indeed/Glassdoor)<input data-src="jobspy" data-key="country_indeed" value="${esc(st.country_indeed || "brazil")}"></label>
+      ${state.status && !state.status.jobspy_installed ? `<div class="alert warn small" style="margin-top:8px">Requer <code>uv sync --extra jobspy</code></div>` : ""}` : "";
+    return `<div class="source-card ${s.enabled ? "" : "off"}">
+      <label class="inline"><input type="checkbox" data-src="${esc(s.name)}" data-key="enabled" ${s.enabled ? "checked" : ""}> <b>${esc(s.display_name)}</b> <span class="muted small">${esc(s.regions.join(", "))}</span></label>
+      ${s.terms_note ? `<div class="alert warn small" style="margin:8px 0 0">${esc(s.terms_note)}</div>` : ""}
+      ${list}${jobspy}
+      <label style="margin-top:8px">Máx. resultados<input type="number" data-src="${esc(s.name)}" data-key="max_results" value="${esc(st.max_results ?? "")}" placeholder="padrão da busca"></label>
+    </div>`;
+  }).join("");
+  $("#c-min-score").value = cfg.matching.min_score; $("#c-use-ai").checked = cfg.matching.use_ai;
+  $("#c-ai-provider").value = cfg.ai.provider; $("#c-ai-model").value = cfg.ai.model; $("#c-ai-effort").value = cfg.ai.effort;
+  $("#c-apply-mode").value = cfg.apply.mode; $("#c-headless").checked = cfg.apply.headless;
+  $("#c-max-day").value = cfg.apply.max_per_day; $("#c-delay").value = cfg.apply.delay_seconds;
+  const s = state.status || await api("/api/status");
+  const yn = (b) => b ? `<span class="badge ok">sim</span>` : `<span class="badge bad">não</span>`;
+  $("#sysinfo").innerHTML = `<table>
+    <tr><td>Versão</td><td>${esc(s.version)}</td></tr>
+    <tr><td>Pasta de dados</td><td><code>${esc(s.data_dir)}</code></td></tr>
+    <tr><td>Playwright (candidatura automática)</td><td>${yn(s.playwright_installed)}</td></tr>
+    <tr><td>IA em uso</td><td>${s.ai_provider ? `<span class="badge ok">${esc(s.ai_provider)}</span>` : `<span class="badge bad">nenhuma disponível</span>`}</td></tr>
+    <tr><td>Claude Code CLI (<code>claude</code>)</td><td>${yn(s.ai_providers["claude-cli"])}</td></tr>
+    <tr><td>Codex CLI (<code>codex</code>) — respostas sempre revisadas</td><td>${yn(s.ai_providers["codex-cli"])}</td></tr>
+    <tr><td>Anthropic API (extra [ai] + ANTHROPIC_API_KEY)</td><td>${yn(s.ai_providers.api)}</td></tr>
+    <tr><td>JobSpy (LinkedIn/Indeed)</td><td>${yn(s.jobspy_installed)}</td></tr></table>`;
+}
+$("#save-config").onclick = async () => {
+  const cfg = structuredClone(state.config);
+  $$("#c-sources [data-src]").forEach((el) => {
+    const src = (cfg.sources[el.dataset.src] ||= {});
+    let v = el.type === "checkbox" ? el.checked : el.value;
+    if (el.hasAttribute("data-list")) v = splitList(v);
+    if (el.type === "number") { if (v === "") { delete src[el.dataset.key]; return; } v = +v; }
+    src[el.dataset.key] = v;
+  });
+  cfg.matching = { min_score: +$("#c-min-score").value, use_ai: $("#c-use-ai").checked };
+  cfg.ai = { provider: $("#c-ai-provider").value, model: $("#c-ai-model").value.trim(), effort: $("#c-ai-effort").value };
+  cfg.apply = { mode: $("#c-apply-mode").value, headless: $("#c-headless").checked, max_per_day: +$("#c-max-day").value, delay_seconds: +$("#c-delay").value };
+  try {
+    state.config = await api("/api/config", { method: "PUT", json: cfg });
+    toast("Configurações salvas"); state.status = null; await loadStatus(); loadSettings(); loadSourcesForSearch(); loadStatus();
+    $("#f-min").value = state.config.matching.min_score; $("#f-min-v").textContent = $("#f-min").value;
+  } catch (e) { toast(e.message, true); }
+};
+
+/* ------------------------------------------------------------------ boot */
+(async function boot() {
+  try {
+    state.config = await api("/api/config");
+    $("#f-min").value = state.config.matching.min_score; $("#f-min-v").textContent = $("#f-min").value;
+    $("#s-ai").checked = state.config.matching.use_ai;
+    await Promise.all([loadStatus(), loadSourcesForSearch(), loadDocsData()]);
+    const tab = location.hash.slice(1);
+    showTab(["jobs", "applications", "documents", "profile", "settings"].includes(tab) ? tab : "jobs");
+  } catch (e) { toast("Erro ao carregar: " + e.message, true); }
+})();
+</script>
+</body>
+</html>

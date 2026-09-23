@@ -11,9 +11,10 @@ Comente na issue correspondente.
 - [ ] Busca agendada (`candidatador watch`) com notificação de vagas novas acima de X pontos
 
 ## v0.3 — Interface web local
-- [ ] `candidatador ui`: painel local (FastAPI + front leve) para revisar vagas, arrastar para
-      "quero aplicar" e acompanhar o funil (aplicado → entrevista → proposta)
-- [ ] Upload de documentos pela interface
+- [x] `candidatador ui`: painel local (FastAPI + página única) para buscar, filtrar, revisar e
+      candidatar-se
+- [x] Upload de documentos pela interface
+- [ ] Funil pós-candidatura (aplicado → entrevista → proposta)
 - [ ] Kanban de candidaturas com status atualizáveis e lembretes de follow-up
 
 ## v0.4 — Inteligência

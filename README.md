@@ -55,7 +55,20 @@ uv sync --all-extras
 uv run candidatador --help
 ```
 
-## Início rápido
+## Interface web (mais fácil)
+
+```bash
+candidatador ui        # abre http://127.0.0.1:8765 no navegador
+```
+
+Tudo pela interface: preencher o perfil e as respostas padrão, subir currículos e
+certificados (arrastar e soltar), ligar/desligar fontes, buscar vagas, filtrar (texto, status,
+fonte, remota, preenchimento automático, nota mínima), favoritar/ignorar e **candidatar-se**.
+Quando o formulário tem uma pergunta que o candidatador não sabe responder, ou na
+confirmação final, a pergunta aparece na própria página. A interface só escuta em
+`127.0.0.1` e rejeita requisições de outros sites.
+
+## Início rápido pela linha de comando
 
 ```bash
 # 1. cria a pasta de dados local (profile.yaml + config.yaml)
@@ -115,8 +128,15 @@ resposta enviada. Leia [docs/uso-responsavel.md](docs/uso-responsavel.md).
 
 ## IA (opcional)
 
-Com `pip install "candidatador[ai]"` e a variável `ANTHROPIC_API_KEY`, o candidatador usa o
-Claude para:
+A IA é opcional e pode vir de três lugares (Configurações → Provedor de IA, ou `ai.provider`):
+
+| Provedor | Precisa de | Observação |
+|---|---|---|
+| `claude-cli` | [Claude Code](https://claude.com/claude-code) instalado e logado | **Recomendado.** Usa sua assinatura, sem chave de API. Roda sem nenhuma ferramenta e sem MCP |
+| `codex-cli` | [Codex CLI](https://github.com/openai/codex) instalado e logado | Sandbox somente leitura; as respostas de formulário **sempre** passam por você |
+| `api` | `pip install "candidatador[ai]"` + `ANTHROPIC_API_KEY` | Cobrança por uso na API |
+
+`auto` (padrão) usa o primeiro disponível nessa ordem. Com IA, o candidatador pode:
 
 - analisar a compatibilidade da vaga com seu perfil e **escolher a melhor versão do currículo**;
 - responder perguntas abertas dos formulários **usando apenas fatos do seu perfil**
@@ -138,7 +158,9 @@ src/candidatador/
 ├── matching/         # filtros + pontuação explicável
 ├── llm/              # recursos de IA (opcionais)
 ├── apply/            # 🔌 aplicadores via navegador (plugins)
-└── pipeline.py       # busca → filtra → deduplica → pontua → salva
+├── pipeline.py       # busca → filtra → deduplica → pontua → salva
+├── service.py        # fluxo de candidatura compartilhado por CLI e interface
+└── web/              # interface local (FastAPI + página única, sem build)
 ```
 
 Detalhes em [docs/arquitetura.md](docs/arquitetura.md).

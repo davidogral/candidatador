@@ -57,7 +57,10 @@ class MatchingConfig(BaseModel):
 
 
 class AIConfig(BaseModel):
-    model: str = "claude-opus-5"
+    #: auto: first available of claude-cli, codex-cli, api
+    provider: Literal["auto", "claude-cli", "codex-cli", "api"] = "auto"
+    #: empty = the provider's default model
+    model: str = ""
     effort: Literal["low", "medium", "high", "xhigh", "max"] = "low"
 
 

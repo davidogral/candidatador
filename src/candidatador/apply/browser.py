@@ -35,7 +35,8 @@ class BrowserApplier(Applier):
 
             if ctx.dry_run:
                 ctx.confirm(
-                    "[dry-run] Formulário preenchido. Confira no navegador e pressione Enter."
+                    "Teste concluído: formulário preenchido e NADA foi enviado. "
+                    "Confira no navegador e confirme para fechá-lo."
                 )
                 return ApplyOutcome(ApplicationStatus.FILLED, notes)
 

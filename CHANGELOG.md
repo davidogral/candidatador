@@ -5,6 +5,19 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Não lançado]
 
+### Adicionado
+- Interface web local (`candidatador ui`): perfil, respostas padrão, documentos, fontes,
+  busca, filtros, detalhes da vaga, candidatura com perguntas/confirmação na página,
+  registro de candidaturas manuais e histórico.
+- IA via CLI: provedores `claude-cli` (Claude Code, usando sua assinatura) e `codex-cli`, além
+  da API. `ai.provider: auto` escolhe o primeiro disponível. Falhas da IA não interrompem a busca
+  nem a candidatura.
+- `service.apply_to_job`: fluxo de candidatura compartilhado entre CLI e interface.
+
+### Corrigido
+- Perguntas de sim/não (ex.: "Will you require sponsorship to work in the country?") não
+  recebem mais um campo do perfil (como o país); respostas padrão têm prioridade.
+
 ## [0.1.0] - 2026-09-22
 
 ### Adicionado

@@ -24,3 +24,11 @@ def test_resolution_order(profile):
 def test_company_name_is_not_the_candidate_name(profile):
     provider = AnswerProvider(profile, JOB)
     assert provider.resolve("Nome da empresa atual") is None
+
+
+def test_yes_no_questions_never_get_a_profile_field(profile):
+    provider = AnswerProvider(profile, JOB)
+    sponsorship = "Will you now or in the future require sponsorship to work in the country?"
+    assert provider.resolve(sponsorship).value == "Não"  # profile.answers.requires_sponsorship
+    assert provider.resolve("Are you located in the UK or Poland?") is None
+    assert provider.resolve("What is your current country of residence?").value == "Brasil"

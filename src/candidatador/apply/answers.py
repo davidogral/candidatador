@@ -14,7 +14,7 @@ from candidatador.config import Profile
 from candidatador.sources.base import JobPosting, normalize
 
 if TYPE_CHECKING:
-    from candidatador.llm import ClaudeAssistant
+    from candidatador.llm import AIAssistant
     from candidatador.models import Document
 
 # Keys in profile.answers -> phrases that identify the question (pt/en, normalized)
@@ -46,6 +46,26 @@ QUESTION_HINTS: dict[str, list[str]] = {
     "how_did_you_hear": ["how did you hear", "como soube", "como conheceu", "como ficou sabendo"],
 }
 
+# Questions starting like this expect yes/no (or a sentence), never a profile field value
+YES_NO_OPENERS = (
+    "are you",
+    "do you",
+    "will you",
+    "have you",
+    "would you",
+    "can you",
+    "did you",
+    "is your",
+    "voce ",
+    "vc ",
+    "possui",
+    "tem ",
+    "aceita",
+    "estaria",
+    "esta disposto",
+    "ja trabalhou",
+)
+
 
 @dataclass
 class ResolvedAnswer:
@@ -59,14 +79,14 @@ class AnswerProvider:
     profile: Profile
     job: JobPosting
     resume: Document | None = None
-    assistant: ClaudeAssistant | None = None
+    assistant: AIAssistant | None = None
     ask_user: Callable[[str, list[str] | None], str | None] | None = None
     log: dict[str, ResolvedAnswer] = field(default_factory=dict)
 
     def resolve(self, question: str, options: list[str] | None = None) -> ResolvedAnswer | None:
         answer = (
-            self._from_profile(question)
-            or self._from_answers(question)
+            self._from_answers(question)
+            or self._from_profile(question)
             or self._from_ai(question, options)
             or self._from_user(question, options)
         )
@@ -77,6 +97,8 @@ class AnswerProvider:
     def _from_profile(self, question: str) -> ResolvedAnswer | None:
         p = self.profile.personal
         q = f" {normalize(question)} "
+        if q.lstrip().startswith(YES_NO_OPENERS):
+            return None  # "Will you require sponsorship to work in this country?" is not "Brasil"
         table = [
             (["full name", "nome completo"], p.full_name),
             (["first name", "primeiro nome"], p.first_name),
@@ -111,9 +133,12 @@ class AnswerProvider:
     def _from_ai(self, question: str, options: list[str] | None) -> ResolvedAnswer | None:
         if self.assistant is None:
             return None
-        result = self.assistant.answer_question(
-            self.profile, self.resume, self.job, question, options
-        )
+        try:
+            result = self.assistant.answer_question(
+                self.profile, self.resume, self.job, question, options
+            )
+        except Exception:
+            return None  # AI failed: fall back to asking the user
         if not result.answer:
             return None
         return ResolvedAnswer(result.answer, "ai", needs_review=not result.confident)

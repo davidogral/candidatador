@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import time
 import webbrowser
 from pathlib import Path
@@ -17,8 +16,8 @@ from sqlmodel import Session, col, select
 
 from candidatador import __version__
 from candidatador.config import Paths, init_home, load_config, load_profile
-from candidatador.db import session, submitted_since
-from candidatador.documents import add_document, pick_resume
+from candidatador.db import session
+from candidatador.documents import add_document
 from candidatador.models import (
     Application,
     ApplicationStatus,
@@ -26,9 +25,9 @@ from candidatador.models import (
     DocumentKind,
     Job,
     JobStatus,
-    utcnow,
 )
-from candidatador.pipeline import job_to_posting, run_search
+from candidatador.pipeline import run_search
+from candidatador.service import ApplyHooks, ApplyOptions, apply_to_job, record_application
 from candidatador.sources import SearchQuery, available_sources
 
 app = typer.Typer(
@@ -373,129 +372,67 @@ def _apply_one(
     ai: bool | None = None,
     cover_letter: bool = False,
 ) -> ApplicationStatus | None:
-    from candidatador.apply import AnswerProvider, ApplyContext, find_applier
-
-    config, profile = load_config(paths), load_profile(paths)
-    mode = "auto" if auto else config.apply.mode
-
-    if not dry_run and submitted_since(s) >= config.apply.max_per_day:
-        console.print(
-            f"[yellow]Limite diário de {config.apply.max_per_day} candidaturas atingido.[/]"
-        )
-        return None
-
-    resume = (
-        s.get(Document, doc_id) if doc_id else pick_resume(s, f"{job.title}\n{job.description}")
-    )
-    posting = job_to_posting(job)
-    url = job.apply_url or job.url
-    applier_cls = find_applier(url)
-    console.rule(f"{job.title} @ {job.company}")
-
-    if applier_cls is None:
-        console.print(f"Ainda não há preenchimento automático para esta vaga ({job.source}).")
-        console.print(f"Abrindo {url} — currículo sugerido: {resume.path if resume else 'nenhum'}")
-        webbrowser.open(url)
-        if Confirm.ask("Você concluiu a candidatura manualmente?"):
-            _record(s, job, resume, "manual", mode, ApplicationStatus.MANUAL, {}, "")
-            return ApplicationStatus.MANUAL
-        return ApplicationStatus.SKIPPED
-
-    use_ai = config.matching.use_ai if ai is None else ai
-    assistant = None
-    if use_ai or cover_letter:
-        from candidatador.llm import ClaudeAssistant
-
-        assistant = ClaudeAssistant(config.ai)
-
     def ask_user(question: str, options: list[str] | None) -> str | None:
         hint = f" ({' / '.join(options)})" if options else ""
         return Prompt.ask(f"[cyan]?[/] {question}{hint}", default="") or None
 
-    answers = AnswerProvider(profile, posting, resume, assistant if use_ai else None, ask_user)
-    letter = (
-        assistant.cover_letter(profile, resume, posting) if (cover_letter and assistant) else None
-    )
-    ctx = ApplyContext(
-        profile=profile,
-        job=posting,
-        resume=resume,
-        answers=answers,
-        confirm=lambda q: Confirm.ask(q, default=False),
-        mode=mode,
+    console.rule(f"{job.title} @ {job.company}")
+    options = ApplyOptions(
+        doc_id=doc_id,
+        mode="auto" if auto else None,
         dry_run=dry_run,
-        headless=config.apply.headless and mode == "auto",
-        browser_state=paths.browser_state,
-        cover_letter=letter,
+        ai=ai,
+        cover_letter=cover_letter,
     )
-    console.print(
-        f"via {applier_cls.display_name} · modo {mode}{' · dry-run' if dry_run else ''}"
-        f" · currículo: {resume.title if resume else 'nenhum'}"
+    hooks = ApplyHooks(
+        confirm=lambda q: Confirm.ask(q, default=False), ask_user=ask_user, log=console.print
     )
-    try:
-        outcome = applier_cls().apply(ctx)
-    except Exception as exc:
-        _record(
-            s,
-            job,
-            resume,
-            applier_cls.name,
-            mode,
-            ApplicationStatus.FAILED,
-            answers.log,
-            f"{type(exc).__name__}: {exc}",
-        )
-        console.print(f"[red]Falhou:[/] {exc}")
-        return ApplicationStatus.FAILED
+    result = apply_to_job(s, paths, job, options, hooks)
 
-    _record(
-        s,
-        job,
-        resume,
-        applier_cls.name,
-        mode,
-        outcome.status,
-        answers.log,
-        outcome.error,
-        "\n".join(outcome.notes),
-    )
-    for note in outcome.notes:
+    if result.manual_required:
+        resume_path = result.resume.path if result.resume else "nenhum"
+        console.print(f"Ainda não há preenchimento automático para esta vaga ({job.source}).")
+        console.print(f"Abrindo {result.url} — currículo sugerido: {resume_path}")
+        webbrowser.open(result.url)
+        if Confirm.ask("Você concluiu a candidatura manualmente?"):
+            record_application(
+                s, job, result.resume, "manual", "manual", ApplicationStatus.MANUAL, {}
+            )
+            return ApplicationStatus.MANUAL
+        return ApplicationStatus.SKIPPED
+
+    if result.status is None:
+        console.print(f"[yellow]{result.error}[/]")
+        return None
+    for note in result.notes:
         console.print(f"[yellow]•[/] {note}")
+    if result.error:
+        console.print(f"[red]Falhou:[/] {result.error}")
     console.print(
-        f"Resultado: [bold]{outcome.status.value}[/] · {len(answers.log)} respostas registradas"
+        f"Resultado: [bold]{result.status.value}[/] · {len(result.answers)} respostas registradas"
     )
-    return outcome.status
+    return result.status
 
 
-def _record(
-    s: Session,
-    job: Job,
-    resume: Document | None,
-    applier: str,
-    mode: str,
-    status: ApplicationStatus,
-    answers: dict,
-    error: str,
-    notes: str = "",
+@app.command()
+def ui(
+    port: Annotated[int, typer.Option(help="Porta local.")] = 8765,
+    open_browser: Annotated[bool, typer.Option("--open/--no-open")] = True,
 ) -> None:
-    serialized = {q: vars(a) for q, a in answers.items()}
-    s.add(
-        Application(
-            job_id=job.id,
-            document_id=resume.id if resume else None,
-            applier=applier,
-            mode=mode,
-            status=status,
-            answers_json=json.dumps(serialized, ensure_ascii=False),
-            error=error,
-            notes=notes,
-            submitted_at=utcnow() if status == ApplicationStatus.SUBMITTED else None,
-        )
-    )
-    if status in (ApplicationStatus.SUBMITTED, ApplicationStatus.MANUAL):
-        job.status = JobStatus.APPLIED
-        s.add(job)
-    s.commit()
+    """Abre a interface web local (http://127.0.0.1:8765)."""
+    import threading
+
+    import uvicorn
+
+    from candidatador.web import create_app
+
+    paths = _paths()
+    init_home(paths)
+    url = f"http://127.0.0.1:{port}"
+    console.print(f"Interface disponível em [bold]{url}[/] (Ctrl+C para sair)")
+    if open_browser:
+        threading.Timer(1.0, webbrowser.open, args=(url,)).start()
+    uvicorn.run(create_app(paths, port=port), host="127.0.0.1", port=port, log_level="warning")
 
 
 @app.command()

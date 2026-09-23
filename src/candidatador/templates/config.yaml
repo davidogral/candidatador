@@ -26,10 +26,15 @@ sources:
 
 matching:
   min_score: 40          # vagas abaixo disso ficam ocultas por padrão
-  use_ai: false          # requer: pip install "candidatador[ai]" e ANTHROPIC_API_KEY
+  use_ai: false          # veja a seção "ai" abaixo
 
 ai:
-  model: claude-opus-5
+  # auto: usa o primeiro disponível entre claude-cli, codex-cli e api
+  # claude-cli: Claude Code já logado (sua assinatura) — recomendado, roda sem ferramentas
+  # codex-cli: Codex CLI já logado — respostas sempre marcadas para revisão
+  # api: Anthropic API (pip install "candidatador[ai]" + ANTHROPIC_API_KEY)
+  provider: auto
+  model: ""              # vazio = modelo padrão do provedor
   effort: low            # low | medium | high — custo x qualidade
 
 apply:

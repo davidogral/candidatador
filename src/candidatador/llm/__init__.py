@@ -1,4 +1,5 @@
-"""Optional AI features powered by Claude (install with: pip install "candidatador[ai]").
+"""Optional AI features. The model is reached through a backend (see backends.py): the
+Claude Code CLI or Codex CLI you already use, or the Anthropic API.
 
 - evaluate_job: deeper match analysis + which resume version to send
 - answer_question: answers open/closed questions found in application forms
@@ -9,17 +10,18 @@ Everything here is opt-in and only sends the data needed for the task.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, TypeVar
 
 from pydantic import BaseModel, Field
 
 from candidatador.config import AIConfig, Profile
+from candidatador.llm.backends import AIUnavailableError, Backend, create_backend
 
 if TYPE_CHECKING:
     from candidatador.models import Document
     from candidatador.sources.base import JobPosting
 
-FALLBACK_BETA = "server-side-fallback-2026-07-01"
+T = TypeVar("T", bound=BaseModel)
 MAX_DOC_CHARS = 20_000
 
 SYSTEM_PROMPT = """\
@@ -33,10 +35,6 @@ experiências, diplomas, certificações, empresas ou números.
 em vez de inventar.
 - Responda no idioma da vaga (português ou inglês), de forma objetiva e profissional.
 """
-
-
-class AIUnavailableError(RuntimeError):
-    pass
 
 
 class JobEvaluation(BaseModel):
@@ -54,16 +52,10 @@ class FormAnswer(BaseModel):
     )
 
 
-class ClaudeAssistant:
-    def __init__(self, config: AIConfig, client: Any | None = None) -> None:
-        if client is None:
-            try:
-                import anthropic
-            except ImportError as exc:
-                raise AIUnavailableError('Instale o extra: pip install "candidatador[ai]"') from exc
-            client = anthropic.Anthropic()
-        self.client = client
+class AIAssistant:
+    def __init__(self, config: AIConfig, backend: Backend | None = None) -> None:
         self.config = config
+        self.backend = backend or create_backend(config)
 
     # ------------------------------------------------------------------ public API
 
@@ -94,7 +86,10 @@ class ClaudeAssistant:
             f"{_profile_block(profile)}\n\n{_resumes_block([resume] if resume else [])}\n\n"
             f"{_job_block(job)}\n\nPergunta do formulário de candidatura:\n{question}{opts}"
         )
-        return self._parse(prompt, FormAnswer)
+        answer = self._parse(prompt, FormAnswer)
+        if self.backend.untrusted_tools:
+            answer.confident = False  # always reviewed by a human (see backends.CodexCLIBackend)
+        return answer
 
     def cover_letter(self, profile: Profile, resume: Document | None, job: JobPosting) -> str:
         prompt = (
@@ -102,45 +97,12 @@ class ClaudeAssistant:
             f"{_job_block(job)}\n\nEscreva uma carta de apresentação curta (até 250 palavras), "
             "específica para esta vaga. Devolva apenas o texto da carta."
         )
-        response = self.client.beta.messages.create(
-            model=self.config.model,
-            max_tokens=16000,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-            output_config={"effort": self.config.effort},
-            betas=[FALLBACK_BETA],
-            fallbacks="default",
-        )
-        _check_refusal(response)
-        from anthropic.types.beta import BetaTextBlock
-
-        text = "".join(b.text for b in response.content if isinstance(b, BetaTextBlock))
-        return text.strip()
+        return self.backend.text(SYSTEM_PROMPT, prompt)
 
     # ------------------------------------------------------------------ internals
 
-    def _parse(self, prompt: str, schema: type[BaseModel]) -> Any:
-        response = self.client.beta.messages.parse(
-            model=self.config.model,
-            max_tokens=16000,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-            output_config={"effort": self.config.effort},
-            output_format=schema,
-            betas=[FALLBACK_BETA],
-            fallbacks="default",
-        )
-        _check_refusal(response)
-        if response.parsed_output is None:
-            raise AIUnavailableError(
-                f"Resposta inválida da IA (stop_reason={response.stop_reason})"
-            )
-        return response.parsed_output
-
-
-def _check_refusal(response: Any) -> None:
-    if response.stop_reason == "refusal":
-        raise AIUnavailableError("A IA recusou esta solicitação.")
+    def _parse(self, prompt: str, schema: type[T]) -> T:
+        return self.backend.structured(SYSTEM_PROMPT, prompt, schema)
 
 
 def _profile_block(profile: Profile) -> str:
@@ -162,3 +124,6 @@ def _job_block(job: JobPosting) -> str:
         f"<vaga>\nTítulo: {job.title}\nEmpresa: {job.company}\nLocal: {job.location}\n"
         f"Remota: {job.remote}\n\n{job.description[:MAX_DOC_CHARS]}\n</vaga>"
     )
+
+
+__all__ = ["AIAssistant", "AIUnavailableError", "FormAnswer", "JobEvaluation"]

@@ -28,3 +28,6 @@ browser/
 .idea/
 .vscode/
 .env
+
+# Configuração pessoal de memória de agentes
+.ai-memory.toml
