@@ -219,40 +219,41 @@ def test_site_reported_level_is_used_when_the_title_is_silent():
 
 
 def test_jobspy_searches_the_chosen_country_and_detects_remote(monkeypatch):
-    import pandas as pd
+    """Runs without the jobspy/pandas extras (CI installs only [ai])."""
+    import sys
+    from types import SimpleNamespace
 
     from candidatador.sources.jobspy import JobSpySource
 
+    rows = [
+        {
+            "id": "1",
+            "site": "linkedin",
+            "title": "Analista de Dados",
+            "is_remote": False,
+            "location": "São Paulo, São Paulo, Brazil",
+            "job_url": "u1",
+            "description": "Vaga 100% remota, trabalho remoto.",
+            "job_level": "Entry level",
+        },
+        {
+            "id": "2",
+            "site": "linkedin",
+            "title": "Analista de Dados",
+            "is_remote": False,
+            "location": "Curitiba, Paraná, Brazil",
+            "job_url": "u2",
+            "description": "Modelo híbrido, 3 dias no escritório.",
+            "job_level": "",
+        },
+    ]
     seen = {}
 
     def fake_scrape(**kwargs):
         seen.update(kwargs)
-        return pd.DataFrame(
-            [
-                {
-                    "id": "1",
-                    "site": "linkedin",
-                    "title": "Analista de Dados",
-                    "is_remote": False,
-                    "location": "São Paulo, São Paulo, Brazil",
-                    "job_url": "u1",
-                    "description": "Vaga 100% remota, trabalho remoto.",
-                    "job_level": "Entry level",
-                },
-                {
-                    "id": "2",
-                    "site": "linkedin",
-                    "title": "Analista de Dados",
-                    "is_remote": False,
-                    "location": "Curitiba, Paraná, Brazil",
-                    "job_url": "u2",
-                    "description": "Modelo híbrido, 3 dias no escritório.",
-                    "job_level": "",
-                },
-            ]
-        )
+        return SimpleNamespace(to_dict=lambda orient: rows)  # same shape as a DataFrame
 
-    monkeypatch.setattr("jobspy.scrape_jobs", fake_scrape)
+    monkeypatch.setitem(sys.modules, "jobspy", SimpleNamespace(scrape_jobs=fake_scrape))
     jobs = list(JobSpySource({}).search(SearchQuery(keywords=["dados"], countries=["BR"])))
     assert seen["location"] == "Brazil" and seen["country_indeed"] == "brazil"
     assert [j.remote for j in jobs] == [True, False]
