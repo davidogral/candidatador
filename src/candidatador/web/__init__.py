@@ -30,7 +30,13 @@ from candidatador.config import Config, Paths, Profile, init_home, load_config, 
 from candidatador.db import session, submitted_since
 from candidatador.documents import add_document
 from candidatador.llm.backends import available_providers, resolve_provider
-from candidatador.matching import detect_seniority
+from candidatador.matching import (
+    CONTRACT_LABELS,
+    COUNTRIES,
+    SENIORITY_LABELS,
+    job_seniority,
+)
+from candidatador.matching.location import accepts
 from candidatador.models import (
     Application,
     ApplicationStatus,
@@ -39,7 +45,7 @@ from candidatador.models import (
     Job,
     JobStatus,
 )
-from candidatador.pipeline import run_search
+from candidatador.pipeline import job_to_posting, run_search
 from candidatador.service import ApplyHooks, ApplyOptions, ApplyResult, apply_to_job
 from candidatador.service import record_application as _record
 from candidatador.sources import SearchQuery, available_sources
@@ -143,6 +149,14 @@ class SearchBody(BaseModel):
     sources: list[str] | None = None
     limit: int = 50
     ai: bool | None = None
+    # search-time filters; None = the profile's defaults
+    seniority: list[str] | None = None
+    include_unknown_seniority: bool | None = None
+    countries: list[str] | None = None
+    include_unknown_country: bool | None = None
+    contract_types: list[str] | None = None
+    exclude_talent_pool: bool | None = None
+    title_must_match: bool | None = None
 
 
 class ApplyBody(BaseModel):
@@ -201,7 +215,7 @@ def job_dict(job: Job, *, full: bool = False) -> dict[str, Any]:
         "score_reasons": job.score_reasons,
         "status": job.status.value,
         "auto_apply": find_applier(job.apply_url or job.url) is not None,
-        "seniority": detect_seniority(job.title),
+        "seniority": job_seniority(job.title, job.raw),
     }
     if full:
         data["description"] = job.description
@@ -307,6 +321,15 @@ def create_app(paths: Paths | None = None, *, port: int = 8765) -> FastAPI:
     def put_config(config: Config) -> dict[str, Any]:
         _write_yaml(paths.config, config.model_dump())
         return config.model_dump()
+
+    @app.get("/api/options")
+    def options() -> dict[str, Any]:
+        """Choices for the search filters (labels in Portuguese)."""
+        return {
+            "seniority": SENIORITY_LABELS,
+            "countries": {code: c.label for code, c in COUNTRIES.items()},
+            "contracts": CONTRACT_LABELS,
+        }
 
     @app.get("/api/sources")
     def get_sources() -> list[dict[str, Any]]:
@@ -420,6 +443,13 @@ def create_app(paths: Paths | None = None, *, port: int = 8765) -> FastAPI:
             remote_only=body.remote,
             posted_within_days=body.days,
             limit=body.limit,
+            seniority=body.seniority,
+            include_unknown_seniority=body.include_unknown_seniority,
+            countries=body.countries,
+            include_unknown_country=body.include_unknown_country,
+            contract_types=body.contract_types,
+            exclude_talent_pool=body.exclude_talent_pool,
+            title_must_match=body.title_must_match,
         )
         use_ai = config.matching.use_ai if body.ai is None else body.ai
 
@@ -440,6 +470,7 @@ def create_app(paths: Paths | None = None, *, port: int = 8765) -> FastAPI:
                     "filtered_out": report.filtered_out,
                     "duplicates": report.duplicates,
                     "ai_evaluated": report.ai_evaluated,
+                    "filtered_reasons": report.filtered_reasons,
                     "stored": len(report.stored),
                     "errors": report.errors,
                 }
@@ -466,6 +497,8 @@ def create_app(paths: Paths | None = None, *, port: int = 8765) -> FastAPI:
         remote: bool | None = None,
         auto_apply: bool | None = None,
         seniority: str = "",
+        country: str = "",
+        since: str = "",
         min_score: float | None = None,
         sort: Literal["score", "posted", "fetched"] = "score",
         limit: int = 100,
@@ -483,10 +516,23 @@ def create_app(paths: Paths | None = None, *, port: int = 8765) -> FastAPI:
             stmt = stmt.where(col(Job.source).startswith(source))
         if remote is not None:
             stmt = stmt.where(Job.remote == remote)
+        if since:
+            # "only the last search": jobs (re)fetched after it started
+            try:
+                cut = datetime.fromisoformat(since.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise HTTPException(400, "parâmetro since inválido") from exc
+            stmt = stmt.where(
+                col(Job.fetched_at) >= (cut if cut.tzinfo else cut.replace(tzinfo=UTC))
+            )
         order_column = {"score": Job.score, "posted": Job.posted_at, "fetched": Job.fetched_at}
         order = col(order_column[sort]).desc()
         with session(paths) as s:
-            jobs = [job_dict(j) for j in s.exec(stmt.order_by(order))]
+            rows = list(s.exec(stmt.order_by(order)))
+            if country:
+                countries = [c.strip().upper() for c in country.split(",") if c.strip()]
+                rows = [j for j in rows if accepts(job_to_posting(j), countries)]
+            jobs = [job_dict(j) for j in rows]
             sources = sorted(set(s.exec(select(Job.source).distinct()).all()))
         if auto_apply is not None:
             jobs = [j for j in jobs if j["auto_apply"] == auto_apply]
