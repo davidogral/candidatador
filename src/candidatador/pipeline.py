@@ -11,7 +11,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlmodel import Session, col, select
 
 from candidatador.config import Config, Profile
-from candidatador.matching import passes_filters, score_job
+from candidatador.matching import Filters, passes_filters, score_job
 from candidatador.models import Document, DocumentKind, Job, JobStatus, utcnow
 from candidatador.sources import JobPosting, SearchQuery, available_sources
 
@@ -25,6 +25,8 @@ class SearchReport:
     filtered_out: int = 0
     duplicates: int = 0
     ai_evaluated: int = 0
+    #: why jobs were discarded: {"senioridade": 120, "país": 40, ...}
+    filtered_reasons: dict[str, int] = field(default_factory=dict)
     stored: list[Job] = field(default_factory=list)
     errors: dict[str, str] = field(default_factory=dict)
 
@@ -53,23 +55,11 @@ def run_search(
     """
     report = SearchReport()
 
-    # 1) fetch — network only
-    postings: list[JobPosting] = []
-    registry = available_sources()
-    for name in only_sources or config.enabled_sources():
-        cls = registry.get(name)
-        if cls is None:
-            report.errors[name] = "fonte desconhecida"
-            continue
-        on_progress(f"Buscando em {cls.display_name}...")
-        try:
-            found = list(cls(config.source_settings(name)).search(query))
-        except Exception as exc:  # one failing site must not abort the search
-            report.errors[name] = f"{type(exc).__name__}: {exc}"
-            continue
-        report.fetched += len(found)
-        postings.extend(found)
-        on_progress(f"{cls.display_name}: {len(found)} vagas")
+    # 1) fetch — network only, every source at the same time. Sources see the resolved
+    #    filters (e.g. JobSpy searches LinkedIn in the chosen country).
+    filters = Filters.resolve(query, profile)
+    source_query = query.model_copy(update={"countries": filters.countries})
+    postings = _fetch_all(config, source_query, only_sources, report, on_progress)
 
     # 2) filter, dedupe and local score — reads only
     known_ids = set(s.exec(select(Job.id)).all())
@@ -77,8 +67,10 @@ def run_search(
     scored: list[_Scored] = []
     seen_ids: set[str] = set()
     for posting in postings:
-        if not passes_filters(posting, profile, query)[0]:
+        ok, reason = passes_filters(posting, profile, query, filters)
+        if not ok:
             report.filtered_out += 1
+            report.filtered_reasons[reason] = report.filtered_reasons.get(reason, 0) + 1
             continue
         if posting.id in seen_ids or (
             posting.id not in known_ids and posting.fingerprint in seen_fingerprints
@@ -99,6 +91,47 @@ def run_search(
     report.stored = _upsert_all(s, scored)
     report.stored.sort(key=lambda j: j.score or 0, reverse=True)
     return report
+
+
+def _fetch_all(
+    config: Config,
+    query: SearchQuery,
+    only_sources: list[str] | None,
+    report: SearchReport,
+    on_progress: Callable[[str], None],
+) -> list[JobPosting]:
+    registry = available_sources()
+    names = []
+    for name in only_sources or config.enabled_sources():
+        if name in registry:
+            names.append(name)
+        else:
+            report.errors[name] = "fonte desconhecida"
+    if not names:
+        return []
+
+    on_progress("Buscando em " + ", ".join(registry[n].display_name.split(" (")[0] for n in names))
+    postings: list[JobPosting] = []
+    pending = {registry[n].display_name for n in names}
+    with ThreadPoolExecutor(max_workers=len(names)) as pool:
+        futures = {
+            pool.submit(lambda n: list(registry[n](config.source_settings(n)).search(query)), n): n
+            for n in names
+        }
+        for future in as_completed(futures):
+            name = futures[future]
+            label = registry[name].display_name
+            pending.discard(label)
+            try:
+                found = future.result()
+            except Exception as exc:  # one failing site must not abort the search
+                report.errors[name] = f"{type(exc).__name__}: {exc}"
+                found = []
+            report.fetched += len(found)
+            postings.extend(found)
+            waiting = f" · aguardando {', '.join(sorted(pending))}" if pending else ""
+            on_progress(f"{label}: {len(found)} vagas{waiting}")
+    return postings
 
 
 def _refine_with_ai(

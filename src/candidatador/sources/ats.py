@@ -95,7 +95,7 @@ class LeverSource(_CompanyBoardSource):
                 description=item.get("descriptionPlain") or strip_html(item.get("description")),
                 employment_type=cats.get("commitment", ""),
                 posted_at=parse_datetime(item.get("createdAt")),
-                raw={"company": company, "id": item["id"]},
+                raw={"company": company, "id": item["id"], "country_code": item.get("country")},
             )
 
 
@@ -125,5 +125,23 @@ class AshbySource(_CompanyBoardSource):
                 employment_type=item.get("employmentType", ""),
                 salary=comp or "",
                 posted_at=parse_datetime(item.get("publishedAt")),
-                raw={"organization": company, "id": item["id"]},
+                raw={
+                    "organization": company,
+                    "id": item["id"],
+                    "country_code": _ashby_country(item),
+                    "candidate_required_location": "; ".join(
+                        loc.get("location", "") for loc in item.get("secondaryLocations") or []
+                    ),
+                },
             )
+
+
+def _ashby_country(item: dict) -> str:
+    """Ashby gives a country *name* in the postal address; map it to an ISO code."""
+    from candidatador.matching.location import COUNTRIES
+    from candidatador.sources.base import normalize
+
+    name = normalize(
+        ((item.get("address") or {}).get("postalAddress") or {}).get("addressCountry") or ""
+    )
+    return next((c.code for c in COUNTRIES.values() if name and name in c.terms), "")

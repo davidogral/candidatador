@@ -124,6 +124,13 @@ class Target(BaseModel):
     contract_types: list[str] = Field(default_factory=list)
     min_salary_brl: float | None = None
     companies_excluded: list[str] = Field(default_factory=list)
+    # Default search filters (the search form starts with these; see matching/filters.py)
+    seniority_levels: list[str] = Field(default_factory=list)  # [] = any level
+    include_unknown_seniority: bool = True  # keep jobs whose title doesn't state a level
+    countries: list[str] = Field(default_factory=list)  # ISO codes, e.g. ["BR"]; [] = any
+    include_unknown_country: bool = True  # keep jobs that don't say where they hire
+    exclude_talent_pool: bool = True  # "banco de talentos" is not an open position
+    title_must_match: bool = False  # title must contain a searched keyword/role
 
 
 class Profile(BaseModel):

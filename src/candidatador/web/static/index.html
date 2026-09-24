@@ -102,6 +102,7 @@ tr.clickable { cursor: pointer; } tr.clickable:hover td { background: var(--surf
 .hidden { display: none !important; }
 .toggle { font: inherit; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--surface); color: var(--muted); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
 .toggle:hover { border-color: var(--accent); }
+.filter-label { font-weight: 600; min-width: 78px; }
 .toggle[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 @media (max-width: 720px) {
   main { padding: 12px; } header { padding: 10px 12px; } .stats { margin-left: 0; }
@@ -144,6 +145,28 @@ tr.clickable { cursor: pointer; } tr.clickable:hover td { background: var(--surf
         <span class="spacer"></span>
         <button class="btn primary" id="btn-search">🔎 Buscar</button>
       </div>
+      <details id="s-filters" open style="margin-top:14px">
+        <summary class="small" style="font-weight:700;cursor:pointer">Filtros da busca <span class="muted" id="s-filters-summary"></span></summary>
+        <div class="row" style="margin-top:10px">
+          <span class="muted small filter-label">Senioridade:</span><span class="row" id="s-seniority"></span>
+          <label class="inline small"><input type="checkbox" id="s-unknown-sen"> incluir vagas sem nível no título</label>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <span class="muted small filter-label">Países:</span><span class="row" id="s-countries"></span>
+          <label class="inline small" title="Vale também para vagas remotas: 'Worldwide', 'LATAM' e 'Americas' contam para o Brasil"><input type="checkbox" id="s-unknown-country"> incluir vagas que não dizem o país</label>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <span class="muted small filter-label">Contrato:</span><span class="row" id="s-contracts"></span>
+          <span class="muted small">(vagas que não informam o contrato são mantidas)</span>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label class="inline small"><input type="checkbox" id="s-title-match"> título precisa conter o cargo buscado</label>
+          <label class="inline small"><input type="checkbox" id="s-no-pool"> excluir "banco de talentos"</label>
+          <span class="spacer"></span>
+          <button class="btn small" id="s-save-defaults" title="Salva estes filtros no seu perfil">Salvar como padrão</button>
+        </div>
+        <p class="muted small" style="margin:8px 0 0">Nenhum botão marcado = qualquer um. Os padrões vêm do seu perfil.</p>
+      </details>
       <div id="search-result" style="margin-top:12px"></div>
     </div>
 
@@ -157,6 +180,7 @@ tr.clickable { cursor: pointer; } tr.clickable:hover td { background: var(--surf
         <select id="f-source" style="max-width:160px"><option value="">Todas as fontes</option></select>
         <select id="f-remote" style="max-width:140px"><option value="">Remota ou não</option><option value="true">Só remotas</option><option value="false">Presenciais/híbridas</option></select>
         <select id="f-auto" style="max-width:190px"><option value="">Qualquer candidatura</option><option value="true">⚡ Preenchimento automático</option><option value="false">Candidatura manual</option></select>
+        <select id="f-country" style="max-width:170px"><option value="">Qualquer país</option></select>
         <select id="f-sort" style="max-width:150px"><option value="score">Maior nota</option><option value="posted">Mais recentes</option><option value="fetched">Buscadas por último</option></select>
         <label class="inline">Nota mín. <input id="f-min" type="range" min="0" max="100" step="5" style="width:110px"> <b id="f-min-v"></b></label>
       </div>
@@ -170,6 +194,8 @@ tr.clickable { cursor: pointer; } tr.clickable:hover td { background: var(--surf
         <button type="button" class="toggle" data-level="lideranca" aria-pressed="false">Liderança</button>
         <button type="button" class="toggle" data-level="nao_informada" aria-pressed="false" title="Vagas cujo título não diz o nível">Não informada</button>
         <button type="button" class="btn small" id="f-seniority-clear">Todas</button>
+        <span class="spacer"></span>
+        <label class="inline small hidden" id="f-last-wrap" title="Mostra só as vagas trazidas pela última busca"><input type="checkbox" id="f-last"> só da última busca</label>
       </div>
     </div>
 
@@ -377,14 +403,70 @@ async function loadSourcesForSearch() {
   $("#s-sources").innerHTML = state.sources.map((s) => `
     <label class="inline" title="${esc(s.terms_note || "")}"><input type="checkbox" value="${esc(s.name)}" ${s.enabled ? "checked" : ""}> ${esc(s.display_name.split(" (")[0])}</label>`).join("");
 }
+/* ------------------------------------------------------------------ search filters */
+function renderToggles(container, options, selected) {
+  $(container).innerHTML = Object.entries(options).map(([value, label]) =>
+    `<button type="button" class="toggle" data-value="${esc(value)}" aria-pressed="${selected.includes(value)}">${esc(label)}</button>`).join("");
+}
+const pressed = (container) => $$(`${container} .toggle[aria-pressed='true']`).map((b) => b.dataset.value);
+function applySearchDefaults(t) {
+  const o = state.options;
+  renderToggles("#s-seniority", o.seniority, t.seniority_levels || []);
+  renderToggles("#s-countries", o.countries, t.countries || []);
+  renderToggles("#s-contracts", o.contracts, (t.contract_types || []).map((c) => c.toLowerCase()));
+  $("#s-unknown-sen").checked = t.include_unknown_seniority !== false;
+  $("#s-unknown-country").checked = t.include_unknown_country !== false;
+  $("#s-title-match").checked = !!t.title_must_match;
+  $("#s-no-pool").checked = t.exclude_talent_pool !== false;
+  updateFiltersSummary();
+}
+function searchFilters() {
+  return {
+    seniority: pressed("#s-seniority"), include_unknown_seniority: $("#s-unknown-sen").checked,
+    countries: pressed("#s-countries"), include_unknown_country: $("#s-unknown-country").checked,
+    contract_types: pressed("#s-contracts"), exclude_talent_pool: $("#s-no-pool").checked,
+    title_must_match: $("#s-title-match").checked,
+  };
+}
+function updateFiltersSummary() {
+  const f = searchFilters(), o = state.options, parts = [];
+  if (f.seniority.length) parts.push(f.seniority.map((v) => o.seniority[v]).join("/"));
+  if (f.countries.length) parts.push(f.countries.map((v) => o.countries[v]).join("/"));
+  if (f.contract_types.length) parts.push(f.contract_types.map((v) => o.contracts[v]).join("/"));
+  if (f.title_must_match) parts.push("título = cargo");
+  $("#s-filters-summary").textContent = parts.length ? "· " + parts.join(" · ") : "· sem filtros extras";
+}
+$("#s-filters").addEventListener("click", (e) => {
+  const b = e.target.closest(".toggle"); if (!b) return;
+  b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true"));
+  updateFiltersSummary();
+});
+$("#s-filters").addEventListener("change", updateFiltersSummary);
+$("#s-save-defaults").addEventListener("click", async () => {
+  try {
+    const profile = await api("/api/profile"), f = searchFilters();
+    Object.assign(profile.target, {
+      seniority_levels: f.seniority, include_unknown_seniority: f.include_unknown_seniority,
+      countries: f.countries, include_unknown_country: f.include_unknown_country,
+      contract_types: f.contract_types, exclude_talent_pool: f.exclude_talent_pool,
+      title_must_match: f.title_must_match,
+    });
+    state.profile = await api("/api/profile", { method: "PUT", json: profile });
+    toast("Filtros salvos como padrão no seu perfil");
+  } catch (e) { toast(e.message, true); }
+});
+
 $("#btn-search").addEventListener("click", async () => {
   try {
     const selected = $$("#s-sources input:checked").map((i) => i.value);
     if (!selected.length) throw new Error("Selecione ao menos uma fonte.");
+    const startedAt = new Date(Date.now() - 2000).toISOString();
     const task = await api("/api/search", { method: "POST", json: {
       keywords: splitList($("#s-keywords").value), location: $("#s-location").value || null,
       remote: $("#s-remote").checked, days: $("#s-days").value ? +$("#s-days").value : null,
-      limit: +$("#s-limit").value || 50, sources: selected, ai: $("#s-ai").checked } });
+      limit: +$("#s-limit").value || 50, sources: selected, ai: $("#s-ai").checked, ...searchFilters() } });
+    state.lastSearchAt = startedAt;
+    try { localStorage.setItem("cand.lastSearchAt", startedAt); } catch (e) { /* sem storage */ }
     followSearch(task.id);
   } catch (e) { $("#search-result").innerHTML = `<div class="alert bad">${esc(e.message)}</div>`; }
 });
@@ -413,15 +495,18 @@ function followSearch(id) {
 async function showSearchResult(r) {
   if (r.error) { $("#search-result").innerHTML = `<div class="alert bad">A busca falhou: ${esc(r.error)}</div>`; return; }
   const errs = Object.entries(r.errors || {}).map(([k, v]) => `<div class="alert bad">✗ ${esc(k)}: ${esc(v)}</div>`).join("");
+  const reasons = Object.entries(r.filtered_reasons || {}).sort((a, b) => b[1] - a[1]);
+  const reasonsHtml = reasons.length ? `<div class="small muted" style="margin:-6px 0 12px">Descartadas por: ${reasons.map(([k, n]) => `<span class="badge">${esc(k)} ${n}</span>`).join(" ")}</div>` : "";
   $("#f-status").value = "new,shortlisted"; $("#f-sort").value = "score";
   $("#f-q").value = ""; $("#f-source").value = ""; $("#f-remote").value = ""; $("#f-auto").value = "";
+  if (state.lastSearchAt) { $("#f-last-wrap").classList.remove("hidden"); $("#f-last").checked = true; }
   await Promise.all([loadJobs(), loadStatus()]);
   const hidden = r.stored - Math.min(state.jobsTotal, r.stored);
-  $("#search-result").innerHTML = `<div class="alert ok">${r.fetched} vagas encontradas · ${r.filtered_out} descartadas pelos filtros do perfil · ${r.duplicates} duplicadas${r.ai_evaluated ? ` · ${r.ai_evaluated} analisadas pela IA` : ""} · <b>${r.stored} salvas</b> — veja a lista abaixo ↓</div>
+  $("#search-result").innerHTML = `<div class="alert ok">${r.fetched} vagas encontradas · ${r.filtered_out} descartadas pelos filtros do perfil · ${r.duplicates} duplicadas${r.ai_evaluated ? ` · ${r.ai_evaluated} analisadas pela IA` : ""} · <b>${r.stored} salvas</b> — veja a lista abaixo ↓</div>${reasonsHtml}
     ${hidden > 0 ? `<div class="alert warn row">${hidden} vaga(s) salvas estão escondidas pelos filtros (nota mínima ${$("#f-min").value}${selectedSeniority().length ? " e senioridade" : ""}).
       <button class="btn small" id="show-all">Mostrar todas</button></div>` : ""}${errs}`;
   if ($("#show-all")) $("#show-all").onclick = () => {
-    $("#f-min").value = 0; $("#f-min-v").textContent = "0";
+    $("#f-min").value = 0; $("#f-min-v").textContent = "0"; $("#f-country").value = "";
     $$("#f-seniority .toggle").forEach((b) => b.setAttribute("aria-pressed", "false")); saveSeniority();
     loadJobs(); $("#search-result .alert.warn").remove();
   };
@@ -435,6 +520,8 @@ async function loadJobs() {
   if ($("#f-remote").value) p.set("remote", $("#f-remote").value);
   if ($("#f-auto").value) p.set("auto_apply", $("#f-auto").value);
   if (selectedSeniority().length) p.set("seniority", selectedSeniority().join(","));
+  if ($("#f-country").value) p.set("country", $("#f-country").value);
+  if ($("#f-last").checked && state.lastSearchAt) p.set("since", state.lastSearchAt);
   const seq = ++state.jobsSeq;
   const data = await api("/api/jobs?" + p);
   if (seq !== state.jobsSeq) return; // a newer filter change already fired; drop this stale reply
@@ -468,7 +555,7 @@ $("#jobs-body").addEventListener("click", async (ev) => {
   }
   openJob(tr.dataset.id);
 });
-["#f-status", "#f-source", "#f-remote", "#f-auto", "#f-sort"].forEach((s) => $(s).addEventListener("change", loadJobs));
+["#f-status", "#f-source", "#f-remote", "#f-auto", "#f-sort", "#f-country", "#f-last"].forEach((s) => $(s).addEventListener("change", loadJobs));
 $$("#f-seniority .toggle").forEach((b) => b.addEventListener("click", () => {
   b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true"));
   saveSeniority(); loadJobs();
@@ -802,6 +889,12 @@ $("#save-config").onclick = async () => {
     $("#f-min").value = state.config.matching.min_score; $("#f-min-v").textContent = $("#f-min").value;
     restoreSeniority();
     $("#s-ai").checked = state.config.matching.use_ai;
+    const [options, profile] = await Promise.all([api("/api/options"), api("/api/profile")]);
+    state.options = options; state.profile = profile;
+    applySearchDefaults(profile.target);
+    $("#f-country").innerHTML = `<option value="">Qualquer país</option>` + Object.entries(options.countries).map(([c, l]) => `<option value="${esc(c)}">${esc(l)}</option>`).join("");
+    try { state.lastSearchAt = localStorage.getItem("cand.lastSearchAt"); } catch (e) { state.lastSearchAt = null; }
+    if (state.lastSearchAt) $("#f-last-wrap").classList.remove("hidden");
     await Promise.all([loadStatus(), loadSourcesForSearch(), loadDocsData()]);
     if (state.status.search_running) followSearch(state.status.search_running);
     const tab = location.hash.slice(1);

@@ -133,7 +133,13 @@ def test_only_one_search_at_a_time_with_progress(client, monkeypatch):
         on_progress("Buscando em Gupy...")
         release.wait(5)
         return SimpleNamespace(
-            fetched=0, filtered_out=0, duplicates=0, ai_evaluated=0, stored=[], errors={}
+            fetched=0,
+            filtered_out=0,
+            duplicates=0,
+            ai_evaluated=0,
+            stored=[],
+            errors={},
+            filtered_reasons={},
         )
 
     monkeypatch.setattr("candidatador.web.run_search", slow_search)
@@ -182,6 +188,81 @@ def test_seniority_filter(client, paths):
     assert ids(seniority="senior") == {"gupy:12", "gupy:13"}
     assert ids(seniority="junior,nao_informada") == {"gupy:10", "gupy:11"}  # "Dev Python"
     assert client.get("/api/jobs/gupy:13").json()["seniority"] == ["pleno", "senior"]
+
+
+def test_search_body_filters_and_options(client, monkeypatch):
+    seen = {}
+
+    def fake_search(s, config, profile, query, **_kwargs):
+        seen["query"] = query
+        return SimpleNamespace(
+            fetched=3,
+            filtered_out=2,
+            duplicates=0,
+            ai_evaluated=0,
+            stored=[],
+            errors={},
+            filtered_reasons={"país": 2},
+        )
+
+    monkeypatch.setattr("candidatador.web.run_search", fake_search)
+    task = client.post(
+        "/api/search",
+        headers=H,
+        json={
+            "seniority": ["junior"],
+            "countries": ["BR"],
+            "include_unknown_country": False,
+            "contract_types": ["clt"],
+            "title_must_match": True,
+        },
+    ).json()
+    result = wait_search(client, task["id"])["result"]
+    q = seen["query"]
+    assert (q.seniority, q.countries, q.include_unknown_country) == (["junior"], ["BR"], False)
+    assert q.contract_types == ["clt"] and q.title_must_match is True
+    assert q.exclude_talent_pool is None  # not sent -> profile default
+    assert result["filtered_reasons"] == {"país": 2}
+
+    options = client.get("/api/options").json()
+    assert options["countries"]["BR"] == "Brasil"
+    assert options["contracts"]["clt"] == "CLT"
+    assert options["seniority"]["junior"] == "Júnior"
+
+
+def test_list_filters_country_and_last_search(client, paths):
+    from datetime import UTC, datetime, timedelta
+
+    old = datetime.now(UTC) - timedelta(days=2)
+    with session(paths) as s:
+        for job_id, location, fetched in [
+            ("gupy:20", "Brasil", old),
+            ("jobspy-linkedin:21", "Denver, CO", old),
+            ("remotive:22", "Worldwide", datetime.now(UTC)),
+        ]:
+            s.add(
+                Job(
+                    id=job_id,
+                    source=job_id.split(":")[0],
+                    external_id=job_id[-2:],
+                    title="Analista de Dados",
+                    url="https://x",
+                    location=location,
+                    fingerprint=job_id,
+                    score=80,
+                    fetched_at=fetched,
+                )
+            )
+        s.commit()
+
+    def ids(**params):
+        items = client.get("/api/jobs", params={"min_score": 0, **params}).json()["items"]
+        return {j["id"] for j in items}
+
+    assert ids(country="BR") == {"gupy:20", "remotive:22"}  # worldwide counts for Brazil
+    since = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
+    assert ids(since=since) == {"remotive:22"}
+    assert client.get("/api/jobs", params={"since": "ontem"}).status_code == 400
 
 
 def test_manual_application(client, paths):

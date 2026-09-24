@@ -30,9 +30,16 @@ target:
   keywords_excluded: ["php", "estágio"]     # vagas com estes termos são descartadas
   locations: ["São Paulo", "Remoto"]
   remote: preferred                         # only | preferred | any | no
-  contract_types: [clt, pj]
+  contract_types: [clt, pj]                 # clt, pj, estagio, temporario... (vazio = qualquer)
   min_salary_brl: 8000
   companies_excluded: []
+  # Filtros padrão da busca (o formulário de busca começa com eles)
+  seniority_levels: []                      # estagio, junior, pleno, senior, especialista, lideranca
+  include_unknown_seniority: true           # manter vagas cujo título não diz o nível
+  countries: []                             # ex.: [BR] — vale inclusive para vagas remotas
+  include_unknown_country: true             # manter vagas que não dizem de onde contratam
+  exclude_talent_pool: true                 # "banco de talentos" não é vaga aberta
+  title_must_match: false                   # o título precisa conter o cargo buscado
 
 # Respostas padrão para perguntas comuns de formulários.
 # O candidatador usa estas respostas antes de recorrer à IA ou perguntar para você.

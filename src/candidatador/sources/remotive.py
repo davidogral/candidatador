@@ -20,27 +20,27 @@ class RemotiveSource(JobSource):
 
     def search(self, query: SearchQuery) -> Iterable[JobPosting]:
         limit = self.max_results(query)
-        terms = query.keywords or [""]
-        seen: set[str] = set()
-        for term in terms:
+
+        def fetch(term: str) -> list[JobPosting]:
             resp = self.client.get(API, params={"search": term, "limit": limit})
             resp.raise_for_status()
-            for item in resp.json().get("jobs") or []:
-                posting = JobPosting(
-                    source=self.name,
-                    external_id=str(item["id"]),
-                    title=item.get("title", ""),
-                    company=item.get("company_name", ""),
-                    location=item.get("candidate_required_location", ""),
-                    remote=True,
-                    url=item.get("url", ""),
-                    apply_url=item.get("url", ""),
-                    description=strip_html(item.get("description")),
-                    employment_type=item.get("job_type", ""),
-                    salary=item.get("salary", ""),
-                    posted_at=parse_datetime(item.get("publication_date")),
-                    raw={k: v for k, v in item.items() if k != "description"},
-                )
-                if posting.external_id not in seen:
-                    seen.add(posting.external_id)
-                    yield posting
+            return [self._parse(item) for item in resp.json().get("jobs") or []]
+
+        return self.per_keyword(query, fetch)
+
+    def _parse(self, item: dict) -> JobPosting:
+        return JobPosting(
+            source=self.name,
+            external_id=str(item["id"]),
+            title=item.get("title", ""),
+            company=item.get("company_name", ""),
+            location=item.get("candidate_required_location", ""),
+            remote=True,
+            url=item.get("url", ""),
+            apply_url=item.get("url", ""),
+            description=strip_html(item.get("description")),
+            employment_type=item.get("job_type", ""),
+            salary=item.get("salary", ""),
+            posted_at=parse_datetime(item.get("publication_date")),
+            raw={k: v for k, v in item.items() if k != "description"},
+        )

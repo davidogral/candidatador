@@ -215,8 +215,27 @@ def search(
     ai: Annotated[
         bool | None, typer.Option("--ai/--no-ai", help="Refina a pontuação com IA.")
     ] = None,
+    seniority: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--seniority",
+            "-S",
+            help="Só estes níveis: estagio, junior, pleno, senior, especialista, lideranca.",
+        ),
+    ] = None,
+    country: Annotated[
+        list[str] | None,
+        typer.Option("--country", "-c", help="Código do país (ex.: BR); vale para remotas."),
+    ] = None,
+    title_match: Annotated[
+        bool | None,
+        typer.Option("--title-match/--no-title-match", help="Título precisa conter o cargo."),
+    ] = None,
 ) -> None:
-    """Busca vagas em todas as fontes ativas, filtra, pontua e salva."""
+    """Busca vagas em todas as fontes ativas, filtra, pontua e salva.
+
+    Filtros não informados usam os padrões do perfil (target.seniority_levels, countries...).
+    """
     paths = _paths()
     _require_init(paths)
     config, profile = load_config(paths), load_profile(paths)
@@ -226,6 +245,9 @@ def search(
         remote_only=remote,
         posted_within_days=days,
         limit=limit,
+        seniority=seniority or None,
+        countries=[c.upper() for c in country] if country else None,
+        title_must_match=title_match,
     )
     use_ai = config.matching.use_ai if ai is None else ai
     with session(paths) as s, console.status("Buscando vagas...") as status:
@@ -245,6 +267,9 @@ def search(
         f"{report.fetched} vagas encontradas · {report.filtered_out} filtradas · "
         f"{report.duplicates} duplicadas · {len(report.stored)} salvas"
     )
+    if report.filtered_reasons:
+        reasons = sorted(report.filtered_reasons.items(), key=lambda kv: -kv[1])
+        console.print("Descartadas por: " + " · ".join(f"{r} {n}" for r, n in reasons))
     _print_jobs([j for j in report.stored if (j.score or 0) >= config.matching.min_score][:30])
 
 
