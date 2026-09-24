@@ -10,7 +10,9 @@ from sqlmodel import Session, select
 
 from candidatador.config import Paths
 from candidatador.models import Document, DocumentKind
+from candidatador.sources.base import matches_keywords
 
+TITLE_WEIGHT = 3
 TEXT_SUFFIXES = {".txt", ".md", ".markdown"}
 
 
@@ -106,10 +108,17 @@ def pick_resume(s: Session, job_text: str, *, language: str | None = None) -> Do
     if not resumes:
         return None
 
-    text = job_text.lower()
+    # The first line is the job title: a tag there says more about the role than the
+    # description does ("Analista de BI" whose description also lists ML tools).
+    title = job_text.split("\n", 1)[0]
 
     def rank(doc: Document) -> tuple[int, bool, float]:
-        hits = sum(1 for tag in doc.tags if tag.lower() in text)
+        # whole words only: a "bi" tag must not match "ambiente" or "habilidades"
+        hits = sum(
+            (TITLE_WEIGHT if matches_keywords(title, [tag]) else 0)
+            + (1 if matches_keywords(job_text, [tag]) else 0)
+            for tag in doc.tags
+        )
         return hits, doc.is_default, doc.created_at.timestamp()
 
     return max(resumes, key=rank)
