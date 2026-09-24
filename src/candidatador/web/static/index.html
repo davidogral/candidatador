@@ -100,6 +100,9 @@ tr.clickable { cursor: pointer; } tr.clickable:hover td { background: var(--surf
 .source-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
 .source-card.off { opacity: .7; }
 .hidden { display: none !important; }
+.toggle { font: inherit; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--surface); color: var(--muted); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+.toggle:hover { border-color: var(--accent); }
+.toggle[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 @media (max-width: 720px) {
   main { padding: 12px; } header { padding: 10px 12px; } .stats { margin-left: 0; }
   .hide-sm { display: none; } .kv { grid-template-columns: 1fr; }
@@ -156,6 +159,17 @@ tr.clickable { cursor: pointer; } tr.clickable:hover td { background: var(--surf
         <select id="f-auto" style="max-width:190px"><option value="">Qualquer candidatura</option><option value="true">⚡ Preenchimento automático</option><option value="false">Candidatura manual</option></select>
         <select id="f-sort" style="max-width:150px"><option value="score">Maior nota</option><option value="posted">Mais recentes</option><option value="fetched">Buscadas por último</option></select>
         <label class="inline">Nota mín. <input id="f-min" type="range" min="0" max="100" step="5" style="width:110px"> <b id="f-min-v"></b></label>
+      </div>
+      <div class="row" style="margin-top:12px" id="f-seniority" role="group" aria-label="Filtrar por senioridade">
+        <span class="muted small" style="font-weight:600">Senioridade:</span>
+        <button type="button" class="toggle" data-level="estagio" aria-pressed="false">Estágio/Trainee</button>
+        <button type="button" class="toggle" data-level="junior" aria-pressed="false">Júnior</button>
+        <button type="button" class="toggle" data-level="pleno" aria-pressed="false">Pleno</button>
+        <button type="button" class="toggle" data-level="senior" aria-pressed="false">Sênior</button>
+        <button type="button" class="toggle" data-level="especialista" aria-pressed="false">Especialista</button>
+        <button type="button" class="toggle" data-level="lideranca" aria-pressed="false">Liderança</button>
+        <button type="button" class="toggle" data-level="nao_informada" aria-pressed="false" title="Vagas cujo título não diz o nível">Não informada</button>
+        <button type="button" class="btn small" id="f-seniority-clear">Todas</button>
       </div>
     </div>
 
@@ -294,7 +308,7 @@ const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const safeUrl = (u) => /^https?:\/\//i.test(u || "") ? u : "#";
-const state = { status: null, config: null, profile: null, docs: [], sources: [], currentJob: null, applyPoll: null };
+const state = { jobsSeq: 0, status: null, config: null, profile: null, docs: [], sources: [], currentJob: null, applyPoll: null };
 
 async function api(path, opts = {}) {
   const init = { ...opts, headers: { "X-Candidatador": "1", ...(opts.headers || {}) } };
@@ -318,6 +332,17 @@ function relDate(iso) {
 }
 const fmtDateTime = (iso) => iso ? new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—";
 const scoreCls = (s) => s >= 70 ? "hi" : s >= 45 ? "mid" : "lo";
+const SENIORITY_LABEL = { estagio: "Estágio/Trainee", junior: "Júnior", pleno: "Pleno", senior: "Sênior", especialista: "Especialista", lideranca: "Liderança" };
+const seniorityBadges = (levels) => levels.length
+  ? levels.map((l) => `<span class="badge">${esc(SENIORITY_LABEL[l] || l)}</span>`).join(" ")
+  : `<span class="badge" title="O título não diz o nível">nível não informado</span>`;
+const selectedSeniority = () => $$("#f-seniority .toggle[aria-pressed='true']").map((b) => b.dataset.level);
+function saveSeniority() { try { localStorage.setItem("cand.seniority", JSON.stringify(selectedSeniority())); } catch (e) { /* storage indisponível */ } }
+function restoreSeniority() {
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem("cand.seniority") || "[]"); } catch (e) { saved = []; }
+  $$("#f-seniority .toggle").forEach((b) => b.setAttribute("aria-pressed", String(saved.includes(b.dataset.level))));
+}
 const STATUS_LABEL = { new: "nova", shortlisted: "⭐ favorita", applied: "aplicada", ignored: "ignorada" };
 const APP_STATUS = { submitted: ["enviada", "ok"], manual: ["manual", "ok"], filled: ["preenchida (dry-run)", "accent"], skipped: ["não enviada", "warn"], failed: ["falhou", "bad"] };
 const KIND_LABEL = { resume: "Currículos", cover_letter: "Cartas de apresentação", certificate: "Certificados", course: "Cursos", diploma: "Diplomas", portfolio: "Portfólio", other: "Outros" };
@@ -393,9 +418,13 @@ async function showSearchResult(r) {
   await Promise.all([loadJobs(), loadStatus()]);
   const hidden = r.stored - Math.min(state.jobsTotal, r.stored);
   $("#search-result").innerHTML = `<div class="alert ok">${r.fetched} vagas encontradas · ${r.filtered_out} descartadas pelos filtros do perfil · ${r.duplicates} duplicadas${r.ai_evaluated ? ` · ${r.ai_evaluated} analisadas pela IA` : ""} · <b>${r.stored} salvas</b> — veja a lista abaixo ↓</div>
-    ${hidden > 0 ? `<div class="alert warn row">${hidden} vaga(s) salvas estão escondidas por terem nota abaixo de ${$("#f-min").value}.
+    ${hidden > 0 ? `<div class="alert warn row">${hidden} vaga(s) salvas estão escondidas pelos filtros (nota mínima ${$("#f-min").value}${selectedSeniority().length ? " e senioridade" : ""}).
       <button class="btn small" id="show-all">Mostrar todas</button></div>` : ""}${errs}`;
-  if ($("#show-all")) $("#show-all").onclick = () => { $("#f-min").value = 0; $("#f-min-v").textContent = "0"; loadJobs(); $("#search-result .alert.warn").remove(); };
+  if ($("#show-all")) $("#show-all").onclick = () => {
+    $("#f-min").value = 0; $("#f-min-v").textContent = "0";
+    $$("#f-seniority .toggle").forEach((b) => b.setAttribute("aria-pressed", "false")); saveSeniority();
+    loadJobs(); $("#search-result .alert.warn").remove();
+  };
   $("#jobs-count").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -405,7 +434,10 @@ async function loadJobs() {
     sort: $("#f-sort").value, min_score: $("#f-min").value, limit: 300 });
   if ($("#f-remote").value) p.set("remote", $("#f-remote").value);
   if ($("#f-auto").value) p.set("auto_apply", $("#f-auto").value);
+  if (selectedSeniority().length) p.set("seniority", selectedSeniority().join(","));
+  const seq = ++state.jobsSeq;
   const data = await api("/api/jobs?" + p);
+  if (seq !== state.jobsSeq) return; // a newer filter change already fired; drop this stale reply
   const cur = $("#f-source").value;
   $("#f-source").innerHTML = `<option value="">Todas as fontes</option>` + data.sources.map((s) => `<option ${s === cur ? "selected" : ""}>${esc(s)}</option>`).join("");
   state.jobsTotal = data.total;
@@ -414,7 +446,7 @@ async function loadJobs() {
     <tr class="clickable" data-id="${esc(j.id)}">
       <td><span class="score ${scoreCls(j.score)}">${Math.round(j.score || 0)}</span></td>
       <td class="title-cell"><b>${esc(j.title)}</b><span>${esc(j.company)}${j.salary ? " · " + esc(j.salary) : ""}</span>
-        ${j.auto_apply ? `<span class="badge accent">⚡ automático</span>` : ""}</td>
+        ${seniorityBadges(j.seniority)} ${j.auto_apply ? `<span class="badge accent">⚡ automático</span>` : ""}</td>
       <td class="hide-sm">${j.remote ? "🌎 remota" : esc(j.location || "—")}</td>
       <td class="hide-sm"><span class="badge">${esc(j.source)}</span></td>
       <td class="hide-sm small">${relDate(j.posted_at)}</td>
@@ -437,6 +469,14 @@ $("#jobs-body").addEventListener("click", async (ev) => {
   openJob(tr.dataset.id);
 });
 ["#f-status", "#f-source", "#f-remote", "#f-auto", "#f-sort"].forEach((s) => $(s).addEventListener("change", loadJobs));
+$$("#f-seniority .toggle").forEach((b) => b.addEventListener("click", () => {
+  b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true"));
+  saveSeniority(); loadJobs();
+}));
+$("#f-seniority-clear").addEventListener("click", () => {
+  $$("#f-seniority .toggle").forEach((b) => b.setAttribute("aria-pressed", "false"));
+  saveSeniority(); loadJobs();
+});
 $("#f-q").addEventListener("input", debounce(loadJobs));
 $("#f-min").addEventListener("input", () => { $("#f-min-v").textContent = $("#f-min").value; });
 $("#f-min").addEventListener("change", loadJobs);
@@ -461,6 +501,7 @@ async function openJob(id) {
       ${job.employment_type ? `<span class="badge">${esc(job.employment_type)}</span>` : ""}
       ${job.salary ? `<span class="badge ok">${esc(job.salary)}</span>` : ""}
       <span class="badge">${STATUS_LABEL[job.status]}</span>
+      ${seniorityBadges(job.seniority)}
       ${job.auto_apply ? `<span class="badge accent">⚡ preenchimento automático</span>` : `<span class="badge warn">candidatura manual</span>`}
       <a href="${esc(safeUrl(job.url))}" target="_blank" rel="noopener">abrir vaga ↗</a>
     </div>
@@ -759,6 +800,7 @@ $("#save-config").onclick = async () => {
   try {
     state.config = await api("/api/config");
     $("#f-min").value = state.config.matching.min_score; $("#f-min-v").textContent = $("#f-min").value;
+    restoreSeniority();
     $("#s-ai").checked = state.config.matching.use_ai;
     await Promise.all([loadStatus(), loadSourcesForSearch(), loadDocsData()]);
     if (state.status.search_running) followSearch(state.status.search_running);

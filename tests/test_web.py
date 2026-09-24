@@ -152,6 +152,38 @@ def test_only_one_search_at_a_time_with_progress(client, monkeypatch):
     assert client.post("/api/search", json={}, headers=H).status_code == 200
 
 
+def test_seniority_filter(client, paths):
+    add_job(paths, "gupy:10")
+    for job_id, title in [
+        ("gupy:11", "Analista de Dados Júnior"),
+        ("gupy:12", "Analista de Dados Sr"),
+        ("gupy:13", "Analista de Dados Pleno/Sênior"),
+    ]:
+        with session(paths) as s:
+            s.add(
+                Job(
+                    id=job_id,
+                    source="gupy",
+                    external_id=job_id[5:],
+                    title=title,
+                    company="X",
+                    url="https://x",
+                    fingerprint=job_id,
+                    score=80,
+                )
+            )
+            s.commit()
+
+    def ids(**params):
+        items = client.get("/api/jobs", params={"min_score": 0, **params}).json()["items"]
+        return {j["id"] for j in items}
+
+    assert ids(seniority="junior") == {"gupy:11"}
+    assert ids(seniority="senior") == {"gupy:12", "gupy:13"}
+    assert ids(seniority="junior,nao_informada") == {"gupy:10", "gupy:11"}  # "Dev Python"
+    assert client.get("/api/jobs/gupy:13").json()["seniority"] == ["pleno", "senior"]
+
+
 def test_manual_application(client, paths):
     add_job(paths)
     client.post("/api/jobs/gupy:1/manual", json={}, headers=H)
