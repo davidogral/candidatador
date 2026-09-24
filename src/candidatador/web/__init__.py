@@ -30,6 +30,7 @@ from candidatador.config import Config, Paths, Profile, init_home, load_config, 
 from candidatador.db import session, submitted_since
 from candidatador.documents import add_document
 from candidatador.llm.backends import available_providers, resolve_provider
+from candidatador.matching import detect_seniority
 from candidatador.models import (
     Application,
     ApplicationStatus,
@@ -200,6 +201,7 @@ def job_dict(job: Job, *, full: bool = False) -> dict[str, Any]:
         "score_reasons": job.score_reasons,
         "status": job.status.value,
         "auto_apply": find_applier(job.apply_url or job.url) is not None,
+        "seniority": detect_seniority(job.title),
     }
     if full:
         data["description"] = job.description
@@ -463,6 +465,7 @@ def create_app(paths: Paths | None = None, *, port: int = 8765) -> FastAPI:
         source: str = "",
         remote: bool | None = None,
         auto_apply: bool | None = None,
+        seniority: str = "",
         min_score: float | None = None,
         sort: Literal["score", "posted", "fetched"] = "score",
         limit: int = 100,
@@ -487,6 +490,10 @@ def create_app(paths: Paths | None = None, *, port: int = 8765) -> FastAPI:
             sources = sorted(set(s.exec(select(Job.source).distinct()).all()))
         if auto_apply is not None:
             jobs = [j for j in jobs if j["auto_apply"] == auto_apply]
+        if seniority:
+            # "nao_informada" keeps jobs whose title doesn't state a level
+            wanted = set(seniority.split(","))
+            jobs = [j for j in jobs if wanted.intersection(j["seniority"] or ["nao_informada"])]
         return {"total": len(jobs), "items": jobs[offset : offset + limit], "sources": sources}
 
     @app.get("/api/jobs/{job_id}")

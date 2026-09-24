@@ -31,7 +31,10 @@ class LeverApplier(BrowserApplier):
         page.wait_for_selector("input[name='name']", timeout=20_000)
         # Upload first: Lever parses the resume and may prefill fields.
         if not upload_if_present(
-            page, "input[name='resume']", ctx.resume.path if ctx.resume else None
+            page,
+            "input[name='resume']",
+            ctx.resume.path if ctx.resume else None,
+            ctx.resume_upload_name(),
         ):
             notes.append("currículo não anexado")
         page.wait_for_timeout(1500)

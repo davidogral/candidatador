@@ -2,19 +2,16 @@
 
 from __future__ import annotations
 
+import math
+
 from pydantic import BaseModel, Field
 
 from candidatador.config import Profile
+from candidatador.matching.seniority import LABELS, SENIORITY_TERMS, detect_seniority
 from candidatador.sources.base import JobPosting, matches_keywords, normalize
 
-SENIORITY_TERMS = {
-    "estagio": ["estagio", "estagiario", "intern", "internship"],
-    "junior": ["junior", "jr"],
-    "pleno": ["pleno", "mid level", "mid-level", "pl"],
-    "senior": ["senior", "sr"],
-    "especialista": ["especialista", "staff", "principal", "specialist"],
-    "lideranca": ["lead", "lider", "tech lead", "head", "manager", "gerente", "coordenador"],
-}
+#: skills matched for the full 40 points (profiles list many skills; a job cites a few)
+SKILLS_FOR_FULL_SCORE = 6
 
 
 class MatchResult(BaseModel):
@@ -37,29 +34,29 @@ def score_job(job: JobPosting, profile: Profile) -> MatchResult:
         score += 15
         reasons.append("cargo desejado citado na descrição")
 
-    # 2) Skills overlap: up to 40 points
-    skills = [s for s in profile.skills if s.strip()]
+    # 2) Skills overlap: up to 40 points. Variants such as "PowerBI"/"Power BI" count once,
+    #    and a long skills list is not penalized: ~6 matches already give full points.
+    skills = _unique_skills(profile.skills)
     missing: list[str] = []
     if skills:
         hits = [s for s in skills if matches_keywords(text, [s])]
         missing = [s for s in skills if s not in hits]
-        ratio = len(hits) / len(skills)
-        score += 40 * min(1.0, ratio * 1.5)  # matching ~2/3 of your skills is already great
+        needed = min(SKILLS_FOR_FULL_SCORE, math.ceil(len(skills) * 2 / 3))
+        score += 40 * min(1.0, len(hits) / needed)
         if hits:
             reasons.append(f"habilidades: {', '.join(hits[:8])}")
 
-    # 3) Seniority: up to 10 points (or -15 on a clear mismatch)
+    # 3) Seniority (from the title): up to 10 points, or -15 on a clear mismatch
     wanted = normalize(profile.seniority)
     if wanted in SENIORITY_TERMS:
-        title_levels = [
-            lvl for lvl, terms in SENIORITY_TERMS.items() if matches_keywords(job.title, terms)
-        ]
+        title_levels = detect_seniority(job.title)
         if wanted in title_levels:
             score += 10
-            reasons.append(f"senioridade {profile.seniority}")
+            reasons.append(f"senioridade {LABELS[wanted].lower()}")
         elif title_levels:
             score -= 15
-            reasons.append(f"senioridade diferente ({', '.join(title_levels)})")
+            found = ", ".join(LABELS[level].lower() for level in title_levels)
+            reasons.append(f"senioridade diferente ({found})")
         else:
             score += 5
 
@@ -77,3 +74,15 @@ def score_job(job: JobPosting, profile: Profile) -> MatchResult:
     return MatchResult(
         score=round(max(0.0, min(100.0, score)), 1), reasons=reasons, missing_skills=missing
     )
+
+
+def _unique_skills(skills: list[str]) -> list[str]:
+    """Drop blanks and spelling variants that differ only by spaces/case/accents."""
+    seen: set[str] = set()
+    unique = []
+    for skill in skills:
+        key = normalize(skill).replace(" ", "")
+        if key and key not in seen:
+            seen.add(key)
+            unique.append(skill)
+    return unique

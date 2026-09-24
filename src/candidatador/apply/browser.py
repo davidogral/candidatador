@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import contextlib
+import mimetypes
 from collections.abc import Iterator
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from candidatador.apply.base import Applier, ApplyContext, ApplyOutcome
@@ -91,12 +93,21 @@ def fill_if_present(page: Page, selector: str, value: str) -> bool:
     return False
 
 
-def upload_if_present(page: Page, selector: str, path: str | None) -> bool:
+def upload_if_present(
+    page: Page, selector: str, path: str | None, filename: str | None = None
+) -> bool:
+    """Attach a file; `filename` is what the site receives (defaults to the file's own name)."""
     field = page.locator(selector).first
-    if path and field.count():
+    if not path or not field.count():
+        return False
+    if filename:
+        mime = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        field.set_input_files(
+            {"name": filename, "mimeType": mime, "buffer": Path(path).read_bytes()}
+        )
+    else:
         field.set_input_files(path)
-        return True
-    return False
+    return True
 
 
 def label_for(page: Page, field: Locator) -> str:

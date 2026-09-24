@@ -33,6 +33,7 @@ class GreenhouseApplier(BrowserApplier):
             page,
             "input#resume, input[type='file'][id*='resume']",
             ctx.resume.path if ctx.resume else None,
+            ctx.resume_upload_name(),
         ):
             notes.append("currículo não anexado")
         if ctx.cover_letter:
