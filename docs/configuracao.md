@@ -17,6 +17,13 @@ ou defina `CANDIDATADOR_HOME`).
 | `target.remote` | `only`, `preferred`, `any`, `no` |
 | `target.locations` | cidades/estados aceitos |
 | `target.companies_excluded` | empresas que você não quer ver (ex.: empregador atual) |
+| `target.seniority_levels` | filtro de senioridade na busca: `estagio`, `junior`, `pleno`, `senior`, `especialista`, `lideranca` (vazio = qualquer) |
+| `target.include_unknown_seniority` | manter vagas cujo título não diz o nível |
+| `target.countries` | códigos de país aceitos, ex.: `[BR]` — vale para vagas remotas ("Worldwide", "LATAM" e "Americas" contam) |
+| `target.include_unknown_country` | manter vagas que não dizem de onde contratam |
+| `target.contract_types` | `clt`, `pj`, `estagio`, `temporario`… (vagas sem essa informação são mantidas) |
+| `target.exclude_talent_pool` | descartar "banco de talentos" |
+| `target.title_must_match` | o título precisa conter um dos cargos/palavras buscados |
 | `answers` | respostas padrão para perguntas comuns; chaves livres também funcionam: a chave `aceita_pj: "Sim"` responde perguntas que contenham "aceita pj" |
 
 ## config.yaml

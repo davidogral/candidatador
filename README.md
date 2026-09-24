@@ -63,8 +63,10 @@ candidatador ui        # abre http://127.0.0.1:8765 no navegador
 
 Tudo pela interface: preencher o perfil e as respostas padrão, subir currículos e
 certificados (arrastar e soltar), ligar/desligar fontes, buscar vagas, filtrar (texto, status,
-fonte, remota, preenchimento automático, **senioridade**, nota mínima), favoritar/ignorar e
-**candidatar-se**.
+fonte, remota, preenchimento automático, **senioridade**, **país**, nota mínima), favoritar/ignorar
+e **candidatar-se**. Na própria busca dá para exigir senioridade (ex.: só júnior), país — inclusive
+em vagas remotas —, tipo de contrato e título compatível com o cargo, e excluir "banco de
+talentos"; a busca mostra quantas vagas cada filtro descartou.
 Quando o formulário tem uma pergunta que o candidatador não sabe responder, ou na
 confirmação final, a pergunta aparece na própria página. A interface só escuta em
 `127.0.0.1` e rejeita requisições de outros sites.

@@ -6,6 +6,19 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 ## [Não lançado]
 
 ### Adicionado
+- Filtros na hora da busca, com padrões salvos no perfil (`target.*`) e botão "Salvar como
+  padrão": senioridade (ex.: só Júnior, opcionalmente incluindo vagas sem nível no título),
+  país — inclusive para vagas remotas ("Worldwide", "LATAM" e "Americas" contam para o Brasil;
+  "Remote, United States" não) —, tipo de contrato (CLT/PJ/estágio…), excluir "banco de
+  talentos" e título compatível com o cargo (tolerante a "Engenheiro(a)", "Analista Dados Jr").
+- A busca informa quantas vagas cada filtro descartou.
+- Lista de vagas: filtro de país e "só da última busca".
+- Fontes consultadas em paralelo, e as palavras-chave de Gupy e Remotive também.
+- Gupy: país sempre no local e tipo de contrato; Lever/Ashby: código do país.
+- JobSpy: busca no país escolhido (sem isso o LinkedIn devolve vagas dos EUA), detecta vaga
+  remota pelo texto (o filtro de remoto do LinkedIn não tem efeito) e usa o nível informado pelo
+  LinkedIn quando o título não diz.
+- CLI: `search --seniority/-S`, `--country/-c`, `--title-match`.
 - Filtro de senioridade na interface (Estágio/Trainee, Júnior, Pleno, Sênior, Especialista,
   Liderança, Não informada), detectada pelo título da vaga — inclusive "Jr/Pl/Sr" e
   "Analista II/III" — com etiqueta em cada vaga e escolha lembrada no navegador.
