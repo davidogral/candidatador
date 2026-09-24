@@ -7,7 +7,7 @@ import math
 from pydantic import BaseModel, Field
 
 from candidatador.config import Profile
-from candidatador.matching.seniority import LABELS, SENIORITY_TERMS, detect_seniority
+from candidatador.matching.seniority import LABELS, SENIORITY_TERMS, job_seniority
 from candidatador.sources.base import JobPosting, matches_keywords, normalize
 
 #: skills matched for the full 40 points (profiles list many skills; a job cites a few)
@@ -49,7 +49,7 @@ def score_job(job: JobPosting, profile: Profile) -> MatchResult:
     # 3) Seniority (from the title): up to 10 points, or -15 on a clear mismatch
     wanted = normalize(profile.seniority)
     if wanted in SENIORITY_TERMS:
-        title_levels = detect_seniority(job.title)
+        title_levels = job_seniority(job.title, job.raw)
         if wanted in title_levels:
             score += 10
             reasons.append(f"senioridade {LABELS[wanted].lower()}")

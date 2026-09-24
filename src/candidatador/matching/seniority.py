@@ -69,3 +69,23 @@ def detect_seniority(title: str) -> list[str]:
         for match in _ROMAN_RE.finditer(text):
             found.add(_ROMAN[match.group(1)])
     return [level for level in SENIORITY_TERMS if level in found]
+
+
+#: levels some sites report separately from the title (LinkedIn via JobSpy "job_level")
+SITE_LEVELS: dict[str, list[str]] = {
+    "internship": ["estagio"],
+    "entry level": ["junior"],
+    "associate": ["junior"],
+    "mid senior level": ["pleno", "senior"],
+    "director": ["lideranca"],
+    "executive": ["lideranca"],
+}
+
+
+def job_seniority(title: str, raw: dict | None = None) -> list[str]:
+    """Levels from the title; if it doesn't say, the level the site reports (if any)."""
+    levels = detect_seniority(title)
+    if levels:
+        return levels
+    site_level = normalize(str((raw or {}).get("job_level") or ""))
+    return list(SITE_LEVELS.get(site_level, []))
