@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, ClassVar, Literal
 from candidatador.apply.answers import AnswerProvider
 from candidatador.config import Profile
 from candidatador.models import ApplicationStatus
-from candidatador.sources.base import JobPosting
+from candidatador.sources.base import JobPosting, normalize
 
 if TYPE_CHECKING:
     from candidatador.models import Document
@@ -29,6 +29,19 @@ class ApplyContext:
     headless: bool = False
     browser_state: Path | None = None
     cover_letter: str | None = None
+
+    def resume_upload_name(self) -> str | None:
+        """File name the employer sees: "<name>-<company>.pdf" (not the vault's hash name)."""
+        if self.resume is None:
+            return None
+        suffix = Path(self.resume.original_name or self.resume.path).suffix or ".pdf"
+        parts = [slugify(self.profile.personal.full_name), slugify(self.job.company)]
+        stem = "-".join(p for p in parts if p)
+        return f"{stem}{suffix}" if stem else self.resume.original_name
+
+
+def slugify(value: str) -> str:
+    return normalize(value).replace(" ", "-")
 
 
 @dataclass
