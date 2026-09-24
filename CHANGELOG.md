@@ -6,6 +6,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 ## [Não lançado]
 
 ### Adicionado
+- Filtro de senioridade na interface (Estágio/Trainee, Júnior, Pleno, Sênior, Especialista,
+  Liderança, Não informada), detectada pelo título da vaga — inclusive "Jr/Pl/Sr" e
+  "Analista II/III" — com etiqueta em cada vaga e escolha lembrada no navegador.
+- O currículo chega à empresa como `<nome>-<empresa>.pdf`, não com o nome interno do cofre.
 - Interface web local (`candidatador ui`): perfil, respostas padrão, documentos, fontes,
   busca, filtros, detalhes da vaga, candidatura com perguntas/confirmação na página,
   registro de candidaturas manuais e histórico.
@@ -21,6 +25,13 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
   confere a CLI e a interface sem publicar; publicação só em tags `v*`.
 
 ### Corrigido
+- Nota de habilidades penalizava perfis com muitas habilidades (dividia pelo total da lista) e
+  contava variantes como "PowerBI"/"Power BI" em dobro; agora ~6 habilidades encontradas já dão
+  a pontuação máxima.
+- Escolha do currículo comparava tags como trecho de texto ("bi" casava com "ambiente"); agora
+  compara palavras inteiras e dá mais peso ao título da vaga.
+- Lista de vagas podia mostrar o resultado de um filtro antigo quando dois filtros eram
+  alterados em sequência rápida.
 - Busca pela interface travava e dava `database is locked`: a busca segurava a escrita no banco
   durante as chamadas de IA e aceitava buscas simultâneas. Agora roda em segundo plano com
   progresso na página, só grava no final (upsert atômico que preserva o status da vaga), usa
