@@ -7,13 +7,15 @@ import html
 import re
 import unicodedata
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, date, datetime
 from typing import Any, ClassVar
 
 import httpx
 from pydantic import BaseModel, Field
 
+KEYWORD_WORKERS = 4
 USER_AGENT = "candidatador/0.1 (+https://github.com/davidogral/candidatador)"
 
 
@@ -23,6 +25,14 @@ class SearchQuery(BaseModel):
     remote_only: bool = False
     posted_within_days: int | None = None
     limit: int = 50
+    # Search-time filters (see matching/filters.py). None = use the profile's default.
+    seniority: list[str] | None = None
+    include_unknown_seniority: bool | None = None
+    countries: list[str] | None = None
+    include_unknown_country: bool | None = None
+    contract_types: list[str] | None = None
+    exclude_talent_pool: bool | None = None
+    title_must_match: bool | None = None
 
 
 class JobPosting(BaseModel):
@@ -79,6 +89,22 @@ class JobSource(ABC):
 
     def max_results(self, query: SearchQuery) -> int:
         return int(self.settings.get("max_results") or query.limit)
+
+    def per_keyword(
+        self, query: SearchQuery, fetch: Callable[[str], list[JobPosting]]
+    ) -> list[JobPosting]:
+        """Run `fetch` for every keyword in parallel and merge the results without repeats."""
+        terms = query.keywords or [""]
+        with ThreadPoolExecutor(max_workers=min(KEYWORD_WORKERS, len(terms))) as pool:
+            batches = list(pool.map(fetch, terms))
+        seen: set[str] = set()
+        merged = []
+        for batch in batches:
+            for posting in batch:
+                if posting.external_id not in seen:
+                    seen.add(posting.external_id)
+                    merged.append(posting)
+        return merged
 
 
 # --------------------------------------------------------------------------- helpers
